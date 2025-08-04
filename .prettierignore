@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+coverage
+.env
+*.log
+*.pid
+*.seed
+*.pid.lock
+pnpm-lock.yaml

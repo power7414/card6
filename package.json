@@ -1,0 +1,34 @@
+{
+  "name": "card6-voice-platform",
+  "version": "1.0.0",
+  "description": "Google Live API voice conversation platform",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "packageManager": "pnpm@8.15.6",
+  "scripts": {
+    "dev": "concurrently --names \"frontend,backend\" --prefix-colors \"blue,green\" \"pnpm --filter frontend dev\" \"pnpm --filter backend dev\"",
+    "build": "pnpm --filter shared build && pnpm --filter backend build && pnpm --filter frontend build",
+    "test": "pnpm --filter backend test && pnpm --filter frontend test",
+    "test:watch": "concurrently --names \"backend,frontend\" --prefix-colors \"green,blue\" \"pnpm --filter backend test:watch\" \"pnpm --filter frontend test:watch\"",
+    "lint": "pnpm --filter backend lint && pnpm --filter frontend lint",
+    "lint:fix": "pnpm --filter backend lint:fix && pnpm --filter frontend lint:fix",
+    "typecheck": "pnpm --filter shared typecheck && pnpm --filter backend typecheck && pnpm --filter frontend typecheck",
+    "clean": "pnpm --filter backend clean && pnpm --filter frontend clean",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "docker:logs": "docker-compose logs -f",
+    "setup": "pnpm install && pnpm --filter shared build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
