@@ -63,7 +63,7 @@ jobs:
       run: npm run test:coverage:report
 
     - name: Archive coverage artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: coverage-report-${{ matrix.node-version }}
         path: |
@@ -135,7 +135,7 @@ jobs:
         CI: true
 
     - name: Upload performance results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: performance-results
         path: performance-results/
