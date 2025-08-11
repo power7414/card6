@@ -1,0 +1,101 @@
+.simple-audio-visualizer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  pointer-events: none;
+  width: 300px;
+  height: 80px;
+  
+  // 淡入效果
+  animation: fadeIn 0.2s ease-out;
+
+  .visualizer-bars {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3px;
+    height: 100%;
+    width: 100%;
+
+    .bar {
+      flex: 1;
+      background: linear-gradient(
+        to top,
+        rgba(255, 255, 255, 0.1),
+        rgba(255, 255, 255, 0.3)
+      );
+      border-radius: 2px 2px 0 0;
+      min-height: 5%;
+      transition: height 0.1s ease-out;
+      
+      // 微妙的發光效果
+      box-shadow: 0 0 4px rgba(255, 255, 255, 0.2);
+      
+      // 波動動畫
+      &:nth-child(odd) {
+        animation: wave-odd 2s ease-in-out infinite;
+      }
+      
+      &:nth-child(even) {
+        animation: wave-even 2s ease-in-out infinite;
+      }
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes wave-odd {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.1);
+  }
+}
+
+@keyframes wave-even {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.9);
+  }
+}
+
+// 響應式設計
+@media (max-width: 768px) {
+  .simple-audio-visualizer {
+    width: 200px;
+    height: 60px;
+    
+    .visualizer-bars {
+      gap: 2px;
+    }
+  }
+}
+
+// 暗色主題適配
+@media (prefers-color-scheme: dark) {
+  .simple-audio-visualizer {
+    .visualizer-bars .bar {
+      background: linear-gradient(
+        to top,
+        rgba(255, 255, 255, 0.05),
+        rgba(255, 255, 255, 0.2)
+      );
+      box-shadow: 0 0 3px rgba(255, 255, 255, 0.1);
+    }
+  }
+}

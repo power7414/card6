@@ -1,0 +1,610 @@
+@import '../../styles/variables.scss';
+
+.console-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: $font-sans;
+  font-size: 13px;
+  line-height: 1.6;
+  transition: var(--transition);
+  overflow: hidden;
+
+  &.closed {
+    width: 40px !important;
+
+    .console-header {
+      .console-title {
+        opacity: 0;
+        display: none;
+      }
+    }
+
+    .console-controls,
+    .logger-container,
+    .input-container {
+      opacity: 0;
+      display: none;
+    }
+
+    .toggle-button {
+      transform: translateX(-50%);
+    }
+  }
+
+  &.open {
+    .console-header {
+      .console-title {
+        opacity: 1;
+        display: block;
+      }
+    }
+
+    .console-controls,
+    .logger-container,
+    .input-container {
+      opacity: 1;
+      display: flex;
+    }
+
+    .logger-container {
+      display: block;
+    }
+  }
+}
+
+/* Header */
+.console-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+
+  .console-title {
+    color: var(--text-primary);
+    font-family: $font-sans;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    transition: var(--transition);
+  }
+
+  .toggle-button {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: $spacing-xs;
+    border-radius: $radius-sm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+
+    &:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+/* Controls Section */
+.console-controls {
+  flex-direction: column;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+
+  .search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    .search-icon {
+      position: absolute;
+      left: $spacing-md;
+      color: var(--text-tertiary);
+      width: 16px;
+      height: 16px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: $spacing-sm $spacing-md $spacing-sm 40px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: $radius-sm;
+      color: var(--text-primary);
+      font-size: 14px;
+      transition: var(--transition);
+
+      &:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        background: var(--bg-tertiary);
+      }
+
+      &::placeholder {
+        color: var(--text-tertiary);
+      }
+    }
+
+    .clear-search-button {
+      position: absolute;
+      right: $spacing-sm;
+      background: transparent;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      padding: $spacing-xs;
+      border-radius: $radius-sm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+      }
+
+      svg {
+        width: 14px;
+        height: 14px;
+      }
+    }
+  }
+
+  .filter-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    .filter-icon {
+      position: absolute;
+      left: $spacing-md;
+      color: var(--text-tertiary);
+      width: 16px;
+      height: 16px;
+      z-index: 2;
+    }
+
+    .filter-select {
+      width: 100%;
+      padding: $spacing-sm $spacing-md $spacing-sm 40px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: $radius-sm;
+      color: var(--text-primary);
+      font-size: 14px;
+      cursor: pointer;
+      transition: var(--transition);
+
+      &:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        background: var(--bg-tertiary);
+      }
+
+      option {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+      }
+    }
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-md;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: $radius-sm;
+    font-family: $font-mono;
+    font-size: 14px;
+    transition: var(--transition);
+
+    &.connected {
+      border-color: var(--success-color);
+      background: rgba(52, 168, 83, 0.1);
+
+      .status-text {
+        color: var(--success-color);
+      }
+    }
+
+    &.disconnected {
+      border-color: var(--error-color);
+      background: rgba(234, 67, 53, 0.1);
+
+      .status-text {
+        color: var(--error-color);
+      }
+    }
+
+    .status-icon {
+      font-size: 12px;
+    }
+
+    .status-text {
+      font-weight: 500;
+    }
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: $spacing-sm;
+
+    .clear-logs-button {
+      padding: $spacing-sm $spacing-md;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: $radius-sm;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: var(--transition);
+
+      &:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--border-hover);
+      }
+    }
+  }
+}
+
+/* Logger Container */
+.logger-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+
+    &:hover {
+      background: var(--border-hover);
+    }
+  }
+}
+
+/* Logger Styles */
+.logger {
+  color: var(--text-secondary);
+  width: 100%;
+  max-width: 100%;
+  display: block;
+
+  .logger-list {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  .logger-empty {
+    padding: $spacing-xl;
+    text-align: center;
+    color: var(--text-tertiary);
+
+    p {
+      margin: $spacing-sm 0;
+      font-size: 14px;
+    }
+  }
+
+  .log-entry {
+    display: block;
+    padding: $spacing-sm $spacing-lg;
+    color: var(--text-tertiary);
+    font-family: $font-mono;
+    font-size: 12px;
+    line-height: 1.4;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .timestamp {
+      display: inline-block;
+      width: 70px;
+      flex-shrink: 0;
+      color: var(--text-tertiary);
+      margin-right: $spacing-sm;
+    }
+
+    .source {
+      display: inline-block;
+      font-weight: 600;
+      margin-right: $spacing-sm;
+      min-width: 80px;
+    }
+
+    .message {
+      flex: 1;
+      color: var(--text-secondary);
+    }
+
+    .count {
+      background: var(--bg-tertiary);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: $radius-sm;
+      color: var(--accent-color);
+      margin-left: $spacing-sm;
+    }
+
+    // Source-specific styling
+    &.source-server,
+    &.receive {
+      .source {
+        color: var(--accent-color);
+      }
+    }
+
+    &.source-client,
+    &.send:not(.source-server) {
+      .source {
+        color: var(--success-color);
+      }
+    }
+
+    // Level-specific styling
+    &.level-error {
+      background: rgba(234, 67, 53, 0.05);
+      border-left: 3px solid var(--error-color);
+
+      .source {
+        color: var(--error-color);
+      }
+    }
+
+    &.level-warn {
+      background: rgba(251, 188, 4, 0.05);
+      border-left: 3px solid var(--warning-color);
+
+      .source {
+        color: var(--warning-color);
+      }
+    }
+  }
+
+  // Rich log styling
+  .rich-log {
+    display: block;
+    margin: $spacing-sm 0;
+
+    h4 {
+      font-size: 12px;
+      text-transform: uppercase;
+      padding: $spacing-sm 0;
+      margin: 0;
+      font-weight: 600;
+
+      &.role-user {
+        color: var(--success-color);
+      }
+
+      &.role-model {
+        color: var(--accent-color);
+      }
+    }
+
+    h5 {
+      margin: 0 0 $spacing-sm 0;
+      padding-bottom: $spacing-xs;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .part {
+      background: var(--bg-secondary);
+      padding: $spacing-md;
+      margin-bottom: $spacing-xs;
+      color: var(--text-primary);
+      border-radius: $radius-sm;
+      border: 1px solid var(--border-color);
+
+      &.part-text {
+        background: transparent;
+        border: none;
+        padding: $spacing-xs 0;
+      }
+    }
+
+    pre {
+      overflow-x: auto;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+  }
+
+  .inline-code {
+    font-family: $font-mono;
+    background: var(--bg-tertiary);
+    padding: 2px 4px;
+    border-radius: $radius-sm;
+    font-size: 11px;
+
+    &:not(:last-child)::after {
+      content: ', ';
+    }
+  }
+}
+
+/* Syntax Highlighter */
+.syntax-highlighter {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-sm;
+  padding: $spacing-md;
+  margin: $spacing-sm 0;
+  overflow-x: auto;
+  font-size: 11px;
+  line-height: 1.4;
+
+  code {
+    color: var(--text-primary);
+    font-family: $font-mono;
+  }
+}
+
+/* Input Container */
+.input-container {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-color);
+  padding: $spacing-md $spacing-lg;
+  background: var(--bg-secondary);
+
+  &.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .input-content {
+    position: relative;
+    display: flex;
+    gap: $spacing-sm;
+    align-items: flex-end;
+
+    .input-area {
+      flex: 1;
+      padding: $spacing-sm $spacing-md;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: $radius-sm;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: $font-sans;
+      resize: none;
+      min-height: 36px;
+      max-height: 120px;
+      transition: var(--transition);
+
+      &:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        background: var(--bg-tertiary);
+      }
+
+      &::placeholder {
+        color: var(--text-tertiary);
+      }
+
+      &:disabled {
+        cursor: not-allowed;
+      }
+    }
+
+    .send-button {
+      padding: $spacing-sm $spacing-md;
+      background: var(--accent-color);
+      border: none;
+      border-radius: $radius-sm;
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      height: 36px;
+
+      &:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+
+      &:disabled {
+        background: var(--bg-tertiary);
+        color: var(--text-tertiary);
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+/* Responsive Design */
+@media (max-width: $breakpoint-tablet) {
+  .console-sidebar {
+    &.open {
+      width: 100% !important;
+      position: absolute;
+      top: 0;
+      right: 0;
+      z-index: 1000;
+      border-left: none;
+      border-right: 1px solid var(--border-color);
+    }
+  }
+
+  .console-controls {
+    padding: $spacing-md;
+
+    .search-container,
+    .filter-container {
+      .search-input,
+      .filter-select {
+        font-size: 16px; // Prevent zoom on iOS
+      }
+    }
+  }
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .console-sidebar {
+    font-size: 12px;
+
+    .console-header {
+      padding: $spacing-sm $spacing-md;
+
+      .console-title {
+        font-size: 16px;
+      }
+    }
+
+    .console-controls {
+      padding: $spacing-sm $spacing-md;
+      gap: $spacing-sm;
+    }
+
+    .input-container {
+      padding: $spacing-sm $spacing-md;
+    }
+  }
+
+  .logger {
+    .log-entry {
+      padding: $spacing-xs $spacing-md;
+      font-size: 11px;
+
+      .timestamp {
+        width: 60px;
+      }
+    }
+  }
+}

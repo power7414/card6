@@ -1,0 +1,39 @@
+@import '../../styles/variables.scss';
+
+// WaveAnimation styles
+.wave-animation {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 40px;
+  padding: 0 8px;
+  
+  .wave-bar {
+    width: 3px;
+    background: linear-gradient(to top, #4285f4, #34a853);
+    border-radius: 2px;
+    transition: height 0.15s ease;
+    min-height: 4px;
+    
+    &:nth-child(1) { animation-delay: 0s; }
+    &:nth-child(2) { animation-delay: 0.1s; }
+    &:nth-child(3) { animation-delay: 0.2s; }
+    &:nth-child(4) { animation-delay: 0.3s; }
+    &:nth-child(5) { animation-delay: 0.4s; }
+  }
+
+  &.active {
+    .wave-bar {
+      animation: wave 1.5s ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes wave {
+  0%, 100% { 
+    transform: scaleY(1); 
+  }
+  50% { 
+    transform: scaleY(1.8); 
+  }
+}

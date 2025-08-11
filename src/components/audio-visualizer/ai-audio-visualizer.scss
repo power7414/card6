@@ -1,0 +1,127 @@
+.ai-audio-visualizer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+
+  &.playing {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.3);
+    
+    .visualizer-status .status-text {
+      color: rgb(34, 197, 94);
+    }
+  }
+
+  &.idle {
+    background: rgba(107, 114, 128, 0.05);
+    border-color: rgba(107, 114, 128, 0.2);
+    
+    .visualizer-status .status-text {
+      color: rgb(107, 114, 128);
+    }
+  }
+
+  .visualizer-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 20px;
+
+    .status-text {
+      font-size: 12px;
+      font-weight: 500;
+      transition: color 0.3s ease;
+      
+      &.playing {
+        animation: pulse 2s infinite;
+      }
+    }
+  }
+
+  .visualizer-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  .visualizer-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.1);
+
+    .loading-bars {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 100%;
+
+      .loading-bar {
+        width: 3px;
+        height: 20%;
+        border-radius: 1px;
+        animation: loading-wave 1.5s ease-in-out infinite;
+        transition: background-color 0.3s ease;
+      }
+    }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes loading-wave {
+  0%, 40%, 100% {
+    transform: scaleY(0.4);
+  }
+  20% {
+    transform: scaleY(1);
+  }
+}
+
+// 響應式設計
+@media (max-width: 768px) {
+  .ai-audio-visualizer {
+    padding: 8px;
+    gap: 6px;
+
+    .visualizer-status .status-text {
+      font-size: 11px;
+    }
+  }
+}
+
+// 暗色主題適配
+@media (prefers-color-scheme: dark) {
+  .ai-audio-visualizer {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.1);
+
+    &.playing {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: rgba(34, 197, 94, 0.4);
+    }
+
+    .visualizer-container,
+    .visualizer-placeholder {
+      background: rgba(255, 255, 255, 0.05);
+    }
+  }
+}

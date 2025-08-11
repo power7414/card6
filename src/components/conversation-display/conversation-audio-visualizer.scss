@@ -1,0 +1,44 @@
+.conversation-audio-visualizer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  opacity: 0.6;
+  pointer-events: none;
+  
+  // 淡入淡出動畫
+  animation: fadeIn 0.3s ease-in-out;
+
+  // Canvas 樣式調整
+  canvas {
+    border-radius: 8px;
+    filter: blur(0.5px); // 輕微模糊效果，讓它更像背景
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  to {
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+// 響應式設計
+@media (max-width: 768px) {
+  .conversation-audio-visualizer {
+    // 在小螢幕上縮小尺寸
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+}
+
+// 暗色主題適配
+@media (prefers-color-scheme: dark) {
+  .conversation-audio-visualizer {
+    opacity: 0.4; // 在暗色主題中降低透明度
+  }
+}

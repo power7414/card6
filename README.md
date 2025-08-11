@@ -1,306 +1,203 @@
-# Google Live API Voice Conversation Platform
+# 對話測試平台
 
-A real-time voice conversation platform powered by Google's Live API (Gemini 2.0 Flash) with support for text input, push-to-talk, and continuous voice conversation modes.
+基於 Google Gemini Live API 的專業對話測試平台，支援多聊天室管理、即時語音轉錄和多模態 AI 互動。
 
-## Technology Stack
+## ✨ 功能特色
 
-- **Frontend**: React 18 + TypeScript + Tailwind CSS + shadcn/ui + Zustand
-- **Backend**: Node.js + Express + Socket.io + SQLite
-- **Development**: Vite + ESLint + Prettier + Docker + pnpm workspaces
+### 🗣️ 多模態互動
+- **語音對話**: 即時語音輸入與 AI 語音回應
+- **視頻支援**: 攝影機視頻流整合
+- **螢幕分享**: 分享螢幕內容給 AI 分析
+- **檔案上傳**: 支援多種檔案格式
 
-## Project Structure
+### 💬 聊天室管理
+- **多聊天室**: 創建和管理多個獨立對話
+- **聊天室切換**: 快速切換不同對話，保持狀態
+- **重命名與刪除**: 自定義聊天室名稱
+- **對話歷史**: 完整保存對話記錄
 
-```
-card6/
-├── frontend/               # React frontend application
-│   ├── src/
-│   │   ├── components/    # UI components
-│   │   ├── hooks/        # Custom React hooks
-│   │   ├── services/     # API services
-│   │   ├── stores/       # Zustand state management
-│   │   └── utils/        # Utility functions
-│   └── package.json
-├── backend/               # Node.js backend service
-│   ├── src/
-│   │   ├── api/          # REST API routes
-│   │   ├── websocket/    # Socket.io handlers
-│   │   ├── services/     # Business logic
-│   │   └── db/           # Database models
-│   └── package.json
-├── shared/                # Shared TypeScript types
-│   └── src/types/
-└── docker-compose.yml     # Local development environment
-```
+### 🎙️ 即時轉錄
+- **語音轉文字**: 即時轉錄語音輸入
+- **轉錄編輯**: 可編輯轉錄文字後發送
+- **多語言支援**: 支援繁體中文等多種語言
 
-## Prerequisites
+### 🎨 使用者介面
+- **三欄佈局**: 左側聊天室列表、中間對話區、右側除錯面板
+- **響應式設計**: 自適應桌面、平板和手機
+- **面板收合**: 可收合側邊欄節省空間
+- **深色主題**: 護眼的深色界面設計
 
-- Node.js 18+ 
-- pnpm 8+
-- Docker and Docker Compose (optional, for containerized development)
-- Google AI Studio API key
+### 🔧 除錯工具
+- **即時日誌**: 查看系統運行日誌
+- **工具呼叫**: 監控 AI 工具使用情況
+- **篩選搜索**: 快速定位問題
 
-## Quick Start
+## 🚀 快速開始
 
-### 1. Clone and Install Dependencies
+### 前置需求
+- Node.js 16.x 或更高版本
+- npm 或 yarn
+- Google Gemini API Key
 
-```bash
-# Install dependencies for all workspaces
-pnpm install
+### 安裝步驟
 
-# Build shared types
-pnpm --filter shared build
-```
-
-### 2. Environment Setup
-
-```bash
-# Copy environment files
-cp .env.example .env
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-
-# Edit .env files and add your Google API key
-# Required: GOOGLE_API_KEY=your_google_api_key_here
-```
-
-### 3. Start Development Environment
-
-**Option A: Using pnpm (recommended)**
-```bash
-# Start both frontend and backend in development mode
-pnpm dev
-```
-
-**Option B: Using Docker**
-```bash
-# Start with Docker Compose
-pnpm docker:up
-
-# View logs
-pnpm docker:logs
-
-# Stop containers
-pnpm docker:down
-```
-
-### 4. Access the Application
-
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:3001
-- **Health Check**: http://localhost:3001/health
-
-## Development Scripts
-
-### Root Level Commands
-
-```bash
-# Start development servers for frontend and backend
-pnpm dev
-
-# Build all packages
-pnpm build
-
-# Run tests across all packages
-pnpm test
-
-# Run tests in watch mode
-pnpm test:watch
-
-# Lint all packages
-pnpm lint
-
-# Fix linting issues
-pnpm lint:fix
-
-# Type checking
-pnpm typecheck
-
-# Clean build artifacts
-pnpm clean
-
-# Setup project (install + build shared)
-pnpm setup
-```
-
-### Docker Commands
-
-```bash
-# Start development environment
-pnpm docker:up
-
-# Stop development environment
-pnpm docker:down
-
-# Rebuild containers
-pnpm docker:build
-
-# View container logs
-pnpm docker:logs
-```
-
-### Package-Specific Commands
-
-```bash
-# Frontend only
-pnpm --filter frontend dev
-pnpm --filter frontend build
-pnpm --filter frontend test
-
-# Backend only
-pnpm --filter backend dev
-pnpm --filter backend build
-pnpm --filter backend test
-
-# Shared types only
-pnpm --filter shared build
-pnpm --filter shared dev
-```
-
-## Core Features
-
-### Voice Input Modes
-
-1. **Text Input**: Direct text messaging
-2. **Push-to-Talk**: Hold button to record, release to send
-3. **Continuous**: Always listening with voice activity detection
-
-### Audio Configuration
-
-- **Input Format**: 16kHz 16-bit PCM
-- **Output Format**: 24kHz 16-bit PCM  
-- **Real-time bidirectional audio streaming**
-- **Automatic reconnection handling**
-
-### Conversation Management
-
-- **Thread Management**: Create and manage conversation threads
-- **Message History**: Persistent conversation history
-- **Context Management**: Configurable context window
-- **Real-time Transcription**: Live speech-to-text display
-
-### Voice Settings
-
-- **Speed Control**: 0.5x - 2.0x playback speed
-- **Volume Control**: 0-100% volume adjustment
-- **Voice Selection**: Multiple voice options (API dependent)
-
-## API Integration
-
-### Google Live API Setup
-
-1. Get your API key from [Google AI Studio](https://aistudio.google.com/)
-2. Add to your `.env` file:
+1. **克隆專案**
+   ```bash
+   git clone <repository-url>
+   cd conversation-testing-platform
    ```
-   GOOGLE_API_KEY=your_api_key_here
+
+2. **安裝依賴**
+   ```bash
+   npm install
    ```
-3. The platform handles WebSocket connections and audio streaming automatically
 
-### WebSocket Events
+3. **配置環境變數**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   編輯 `.env` 檔案，添加你的 Gemini API Key：
+   ```
+   REACT_APP_GEMINI_API_KEY=your_actual_api_key_here
+   ```
 
-The platform uses Socket.io for real-time communication:
+4. **啟動開發服務器**
+   ```bash
+   npm start
+   ```
 
-- `join-thread`: Join a conversation thread
-- `send-message`: Send text/audio message
-- `start-recording` / `stop-recording`: Control audio recording
-- `audio-chunk`: Stream audio data
-- `message-received`: Receive AI responses
-- `transcription-update`: Live transcription updates
+5. **開啟瀏覽器**
+   
+   瀏覽器會自動開啟 `http://localhost:3000`
 
-## Development Guidelines
+### 獲取 API Key
 
-### Code Style
+1. 前往 [Google AI Studio](https://ai.google.dev/)
+2. 創建新專案或選擇現有專案
+3. 生成 API Key
+4. 將 API Key 添加到 `.env` 檔案中
 
-- **ESLint + Prettier**: Automated code formatting
-- **TypeScript**: Strict type checking enabled
-- **Import Organization**: Absolute imports with path mapping
+## 📋 使用指南
 
-### Testing
+### 基本操作
 
-```bash
-# Run all tests
-pnpm test
+1. **連接 API**: 啟動後點擊頂部的「未連接」按鈕連接 Gemini Live API
+2. **創建聊天室**: 點擊左側「新對話」按鈕
+3. **切換聊天室**: 點擊左側聊天室列表中的項目
+4. **文字對話**: 在底部輸入框中輸入文字，按 Enter 鍵發送
+5. **語音輸入**: 點擊麥克風圖標開始錄音（需要 API 連接）
+6. **發送訊息**: 按 Enter 鍵或點擊發送按鈕
 
-# Run tests in watch mode
-pnpm test:watch
+### 高級功能
 
-# Run with coverage
-pnpm --filter backend test:coverage
+- **攝影機**: 點擊攝影機圖標啟用視頻流
+- **螢幕分享**: 點擊螢幕圖標分享螢幕
+- **檔案上傳**: 點擊檔案夾圖標上傳檔案
+- **面板控制**: 點擊面板邊緣的箭頭收合/展開
+
+## 🏗️ 專案架構
+
+```
+src/
+├── components/
+│   ├── layout/              # 佈局組件
+│   ├── chat-manager/        # 聊天室管理
+│   ├── conversation/        # 對話顯示
+│   ├── input-area/          # 輸入區域
+│   ├── debug-panel/         # 除錯面板
+│   └── shared/              # 共用組件
+├── hooks/                   # React Hooks
+├── stores/                  # 狀態管理 (Zustand)
+├── types/                   # TypeScript 類型
+├── styles/                  # 樣式變數
+├── contexts/                # React Context
+├── lib/                     # 核心庫
+└── utils/                   # 工具函數
 ```
 
-### Type Safety
-
-- Shared types in `/shared` package
-- Strict TypeScript configuration
-- Runtime type validation with Joi
-
-## Troubleshooting
-
-### Common Issues
-
-**Microphone Access**
-- Ensure browser permissions are granted
-- Check HTTPS requirements for production
-
-**WebSocket Connection Fails**
-- Check firewall and proxy settings
-- Verify CORS configuration
-- Ensure backend server is running
-
-**Audio Playback Issues**
-- Check browser autoplay policies
-- Verify audio codec support
-- Test with different browsers
-
-**API Errors**
-- Verify Google API key validity
-- Check API quotas and limits
-- Review network connectivity
-
-### Debugging
+## 🛠️ 開發指令
 
 ```bash
-# Enable debug logging
-export LOG_LEVEL=debug
+# 啟動開發服務器
+npm start
 
-# Check service health
-curl http://localhost:3001/health
+# 構建生產版本
+npm run build
 
-# Test WebSocket connection
-# Use browser developer tools Network tab
+# 運行測試
+npm test
+
+# 型別檢查
+npx tsc --noEmit
+
+# 啟動 HTTPS 開發服務器 (某些 API 需要)
+npm run start-https
 ```
 
-## Production Deployment
+## 📱 響應式設計
 
-**Important**: This is currently an MVP for local development only.
+- **桌面版** (>1024px): 完整三欄佈局
+- **平板版** (768px-1024px): 左側面板自動收合
+- **手機版** (<768px): 全螢幕對話，側邊欄變為抽屜
 
-For production deployment, consider:
+## 🎨 自定義主題
 
-- **HTTPS Configuration**: Required for microphone access
-- **WebSocket Proxy**: Configure reverse proxy for Socket.io
-- **Database Migration**: Switch from SQLite to PostgreSQL
-- **Load Balancing**: Implement horizontal scaling
-- **Security**: Enhanced authentication and rate limiting
-- **Monitoring**: Production logging and metrics
+專案使用 CSS 變數系統，可輕鬆自定義主題顏色：
 
-## Contributing
+```scss
+:root {
+  --bg-primary: #0a0a0a;        // 主背景色
+  --bg-secondary: #1a1a1a;      // 次背景色
+  --text-primary: #ffffff;      // 主文字色
+  --accent-color: #4285f4;      // 強調色
+  // ... 更多變數
+}
+```
 
-1. Follow the established code style (ESLint + Prettier)
-2. Write tests for new features
-3. Update documentation for API changes
-4. Ensure type safety with TypeScript
+## 🔧 故障排除
 
-## License
+### 常見問題
 
-This project is for development and testing purposes.
+1. **API Key 錯誤**
+   - 確認 API Key 正確設置在 `.env` 檔案中
+   - 檢查 API Key 是否有效且有足夠權限
 
-## Support
+2. **麥克風無法使用**
+   - 確認瀏覽器已允許麥克風權限
+   - 使用 HTTPS 連接 (某些瀏覽器要求)
 
-For issues and questions:
-1. Check the troubleshooting section
-2. Review console logs for errors
-3. Test with minimal configuration
-4. Check browser compatibility
+3. **樣式顯示異常**
+   - 清除瀏覽器快取
+   - 確認所有 SCSS 檔案正確載入
+
+### 支援的瀏覽器
+
+- Chrome 90+
+- Firefox 88+
+- Safari 14+
+- Edge 90+
+
+## 📄 授權
+
+本專案基於 Apache 2.0 授權條款開源。
+
+## 🤝 貢獻
+
+歡迎提交 Issue 和 Pull Request！
+
+1. Fork 本專案
+2. 創建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 開啟 Pull Request
+
+## 📞 支援
+
+如有問題或建議，請：
+- 提交 [GitHub Issue](issues)
+- 發送郵件至 support@example.com
 
 ---
 
-**Ready to start development!** Both frontend and backend engineers can begin implementing features immediately with `pnpm dev`.
+**Happy Coding! 🚀**
