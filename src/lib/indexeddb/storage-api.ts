@@ -7,7 +7,7 @@
 
 import { ChatRoom, Message } from '../../types/chat';
 import { dbManager, requestToPromise, cursorToArray, DatabaseError } from './database';
-import { STORES, INDEXES, STORAGE_KEYS } from './schema';
+import { STORES, INDEXES } from './schema';
 
 export interface StorageOptions {
   useLocalStorageFallback?: boolean;

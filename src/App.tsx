@@ -1,4 +1,4 @@
-import React, { memo, useRef, useEffect } from 'react';
+import React, { memo, useEffect } from 'react';
 import { Header } from './components/layout/Header';
 import { TwoColumnLayout } from './components/layout/TwoColumnLayout';
 import { ChatSidebar } from './components/chat-room-sidebar/ChatSidebar';
@@ -8,15 +8,16 @@ import { LiveAPIProvider } from './contexts/LiveAPIContext';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { useChatManager } from './hooks/use-chat-manager';
 import { useConversationEvents } from './hooks/use-conversation-events';
-import { useTranscriptionIntegration } from './hooks/use-transcription-integration';
+import { useTranscriptionIntegration } from './hooks/use-transcription';
 import { initializeStorage } from './lib/indexeddb';
 import './App.scss';
 
-// Import debugging utilities (available in development)
+// Import and enable session debugging
+import { sessionDebugLogger } from './utils/session-debug';
+
+// 啟用 session debug logging
 if (process.env.NODE_ENV === 'development') {
-  import('./utils/session-debug');
-  import('./utils/session-diagnostics');
-  import('./utils/session-resumption-fix');
+  sessionDebugLogger.setEnabled(true);
 }
 
 // Live API 配置
@@ -38,7 +39,7 @@ const MemoizedChatInputArea = memo(ChatInputArea);
 
 function AppContent() {
   // console.log('🏗️ [AppContent] 渲染，檢查除錯是否正常');
-  const { chatRooms, createNewChatRoom, error, clearError } = useChatManager();
+  const { error, clearError } = useChatManager();
   
   // console.log('🏗️ AppContent 渲染，準備初始化事件處理器');
   

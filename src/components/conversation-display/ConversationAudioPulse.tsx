@@ -86,13 +86,6 @@ export const ConversationAudioPulse: React.FC = () => {
         console.log('🎤 [ConversationAudioPulse] 轉錄開始');
         setIsActive(true);
         
-        // 找到當前正在串流的訊息
-        if (activeChatRoom) {
-          const streamingMsg = activeChatRoom.messages.find((msg: any) => msg.isTyping);
-          if (streamingMsg) {
-            streamingMessageRef.current = streamingMsg.id;
-          }
-        }
       }
     };
 

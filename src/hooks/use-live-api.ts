@@ -22,8 +22,6 @@ import { audioContext } from "../lib/utils";
 import VolMeterWorket from "../lib/worklets/vol-meter";
 import { LiveConnectConfig, Modality } from "@google/genai";
 import { useSessionResumption } from "./use-session-resumption";
-import { sessionDebugLogger } from "../utils/session-debug";
-import { sessionResumptionQueue } from "../utils/session-resumption-fix";
 
 export type UseLiveAPIResults = {
   client: GenAILiveClient;
@@ -53,8 +51,7 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
   
   // Session resumption integration
   const sessionResumption = useSessionResumption({
-    enableLogging: true,
-    autoCleanupExpired: true
+    enableLogging: true  // 啟用 logging 以便除錯
   });
   
   // Create stable reference to session resumption functions
@@ -67,7 +64,7 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
   const [sessionTimeLeft, setSessionTimeLeft] = useState<number | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [model, setModel] = useState<string>("models/gemini-2.0-flash-exp");
+  const [model, setModel] = useState<string>("models/gemini-live-2.5-flash-preview");
   const [config, setConfig] = useState<LiveConnectConfig>({
     responseModalities: [Modality.AUDIO],
     outputAudioTranscription: {},
@@ -86,7 +83,9 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
 - 保持回應簡潔且相關
 - 使用台灣慣用的繁體中文用詞`
       }]
-    }
+    },
+    // 啟用 Session Resumption 功能
+    sessionResumption: {}
   });
   const [connected, setConnected] = useState(false);
   const [ready, setReady] = useState(false);
@@ -112,12 +111,10 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
     const onOpen = () => {
       setConnected(true);
       
-      // Start session timer based on model type
-      // Audio sessions: 15 minutes, Audio+Video: 2 minutes
-      const hasVideo = config?.responseModalities?.includes(Modality.IMAGE);
-      const sessionDuration = hasVideo ? 2 * 60 : 15 * 60; // in seconds
+      // Start session timer - 15 minutes for audio sessions
+      const sessionDuration = 15 * 60; // 15 minutes in seconds
       
-      // console.log(`🕐 開始 session 計時器: ${sessionDuration} 秒`);
+      console.log(`🕐 開始 session 計時器: ${sessionDuration} 秒`);
       setSessionTimeLeft(sessionDuration);
       
       // Clear any existing countdown
@@ -158,7 +155,7 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
     };
 
     const onError = (error: ErrorEvent) => {
-      console.error("error", error);
+      console.error('❌ LiveAPI 錯誤:', error.message || error);
     };
 
     const stopAudioStreamer = () => audioStreamerRef.current?.stop();
@@ -166,88 +163,44 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
     const onAudio = (data: ArrayBuffer) =>
       audioStreamerRef.current?.addPCM16(new Uint8Array(data));
 
+    // 簡化的取得當前聊天室 ID 邏輯
+    const getCurrentChatRoomId = () => {
+      return currentChatRoomId || connectingChatRoomIdRef.current;
+    };
+    
     const onSessionResumptionUpdate = (update: { resumable: boolean; newHandle: string | null }) => {
-      // Use connecting room ID if current room ID is not set yet (handles timing issues)
-      const targetChatRoomId = currentChatRoomId || connectingChatRoomIdRef.current;
+      const chatRoomId = getCurrentChatRoomId();
       
-      // Enhanced debugging
-      sessionDebugLogger.log('session_resumption_update', {
-        chatRoomId: currentChatRoomId,
-        connectingChatRoomId: connectingChatRoomIdRef.current,
-        sessionHandle: update.newHandle,
-        resumable: update.resumable
-      });
-      
-      console.log('📝 收到 session resumption 更新:', { 
-        currentChatRoomId, 
-        connectingChatRoomId: connectingChatRoomIdRef.current,
-        targetChatRoomId,
-        resumable: update.resumable,
-        newHandle: update.newHandle ? `${update.newHandle.substring(0, 16)}...` : null
-      });
-      
-      if (targetChatRoomId) {
-        // Handle session resumption update with immediate processing first
-        (async () => {
-          try {
-            await sessionResumptionRef.current.handleSessionResumptionUpdate(targetChatRoomId, update);
-            
-            if (update.resumable && update.newHandle) {
-              sessionDebugLogger.log('session_handle_stored', {
-                chatRoomId: targetChatRoomId,
-                sessionHandle: update.newHandle
-              });
-              console.log('✅ Session handle 已儲存:', targetChatRoomId);
-            } else {
-              sessionDebugLogger.log('session_handle_cleared', {
-                chatRoomId: targetChatRoomId
-              });
-              console.log('🧹 Session 不可恢復:', targetChatRoomId);
-            }
-          } catch (error) {
-            sessionDebugLogger.log('session_handle_error', {
-              chatRoomId: targetChatRoomId,
-              event: 'storage_failed'
-            });
-            console.error('❌ Session handle 處理失敗:', targetChatRoomId, error);
-            
-            // If immediate processing fails, queue for retry
-            console.log('🔄 Queueing session update for retry...', { targetChatRoomId });
-            await sessionResumptionQueue.queueSessionUpdate(targetChatRoomId, update);
-          }
-        })();
-      } else {
-        sessionDebugLogger.log('session_resumption_ignored', {
-          chatRoomId: null,
-          connectingChatRoomId: connectingChatRoomIdRef.current,
-          sessionHandle: update.newHandle,
-          resumable: update.resumable
-        });
-        
-        // If no target chat room ID is available, queue the update for later processing
-        // This handles the race condition where session updates arrive before chat room setup
-        if (connectingChatRoomIdRef.current) {
-          console.log('🔄 Queueing session update for connecting room...', { 
-            connectingRoomId: connectingChatRoomIdRef.current 
-          });
-          
-          (async () => {
-            try {
-              if (connectingChatRoomIdRef.current) {
-                await sessionResumptionQueue.queueSessionUpdate(connectingChatRoomIdRef.current, update);
-              }
-            } catch (error) {
-              console.error('Failed to queue session update:', error);
-            }
-          })();
-        } else {
-          console.log('⚠️ 沒有可用的 chatRoomId，忽略 session 更新');
-        }
+      if (!chatRoomId) {
+        console.log('⚠️ 沒有指定的聊天室，跳過 session 更新');
+        return;
       }
+      
+      // 檢查是否正在恢復連接
+      const wasResuming = sessionResumptionRef.current.getSessionHandle(chatRoomId) !== null;
+      
+      console.log(`📝 Session 更新: ${chatRoomId}`, {
+        resumable: update.resumable,
+        hasHandle: !!update.newHandle,
+        wasResuming: wasResuming
+      });
+      
+      // 如果是恢復連接且收到空的更新，忽略它
+      // 這是 Google Live API 的已知行為，成功恢復後會發送空的 sessionResumptionUpdate
+      if (wasResuming && !update.resumable && !update.newHandle) {
+        console.log('⚠️ 忽略恢復連接後的空 sessionResumptionUpdate:', chatRoomId);
+        return;
+      }
+      
+      // 使用 session resumption hook 處理更新
+      sessionResumptionRef.current.handleSessionResumptionUpdate(chatRoomId, update)
+        .catch(error => {
+          console.error('❌ Session 處理失敗:', chatRoomId, error.message);
+        });
     };
     
     const onGoAway = (data: { reason: string; timeLeft?: string }) => {
-      // console.log('⏰ 收到 GoAway 訊息:', data);
+      console.log('⏰ 收到 GoAway 訊息:', data);
       
       // Clear any existing countdown
       if (countdownIntervalRef.current) {
@@ -258,7 +211,7 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
       if (data.timeLeft) {
         // Parse timeLeft (assuming it's in seconds)
         const seconds = parseInt(data.timeLeft);
-        // console.log('⏱️ 設定 sessionTimeLeft:', seconds);
+        console.log('⏱️ 設定 sessionTimeLeft:', seconds);
         setSessionTimeLeft(seconds);
         
         // Start countdown
@@ -271,12 +224,12 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
               }
               return null;
             }
-            // console.log('⏱️ 倒數計時:', prev - 1);
+            console.log('⏱️ 倒數計時:', prev - 1);
             return prev - 1;
           });
         }, 1000);
       } else {
-        // console.log('⚠️ GoAway 訊息沒有包含 timeLeft');
+        console.log('⚠️ GoAway 訊息沒有包含 timeLeft');
       }
     };
 
@@ -330,11 +283,6 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
     }
 
     console.log('🔄 連接至聊天室:', chatRoomId);
-    
-    sessionDebugLogger.log('connect_start', {
-      chatRoomId,
-      connectingChatRoomId: null
-    });
 
     // Set both the state and ref for session management
     setCurrentChatRoomId(chatRoomId);
@@ -347,21 +295,9 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
     // Get session handle for this chat room
     const sessionHandle = sessionResumptionRef.current.getSessionHandle(chatRoomId);
     
-    sessionDebugLogger.log('session_handle_retrieved', {
-      chatRoomId,
-      sessionHandle: sessionHandle,
-      resumable: !!sessionHandle
-    });
-    
-    if (sessionHandle) {
-      console.log('🔄 找到 session handle，嘗試恢復連接');
-    } else {
-      console.log('🆕 開始新的 session');
-    }
-    
-    // Get session stats for debugging
-    const sessionStats = sessionResumptionRef.current.getSessionStats();
-    console.log('📊 Session 統計:', sessionStats);
+    // 簡化的連接狀態日誌
+    const status = sessionHandle ? '恢復連接' : '新連接';
+    console.log(`🔄 ${status}: ${chatRoomId}`);
     
     client.disconnect();
     
@@ -370,32 +306,16 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
       const success = await client.connect(model, config, sessionHandle);
       
       if (success) {
-        sessionDebugLogger.log('connect_success', {
-          chatRoomId,
-          sessionHandle: sessionHandle,
-          hadSessionHandle: !!sessionHandle
-        });
-        
         console.log(`✅ 連接成功: ${chatRoomId}`);
       } else {
         throw new Error('Connection returned false');
       }
     } catch (error) {
-      sessionDebugLogger.log('connect_error', {
-        chatRoomId,
-        sessionHandle: sessionHandle,
-        hadSessionHandle: !!sessionHandle,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error'
-      });
-      
-      console.error('❌ 連接失敗:', error);
+      console.error('❌ 連接失敗:', error instanceof Error ? error.message : error);
       
       // If session resumption fails, clear the invalid handle and try new session
       if (sessionHandle) {
-        sessionDebugLogger.log('session_handle_expired', {
-          chatRoomId,
-          sessionHandle: sessionHandle
-        });
+        console.log('🧹 清除過期的 session handle:', chatRoomId);
         await sessionResumptionRef.current.clearSessionHandle(chatRoomId);
         
         // Only retry if it was a setup timeout or session-related error
@@ -409,19 +329,12 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
             const retrySuccess = await client.connect(model, config);
             
             if (retrySuccess) {
-              sessionDebugLogger.log('connect_success', {
-                chatRoomId,
-                sessionHandle: null,
-                hadSessionHandle: false,
-                retryConnection: true
-              });
-              
               console.log('✅ 新 session 連接成功');
             } else {
               throw new Error('Retry connection failed');
             }
           } catch (retryError) {
-            console.error('❌ 重試連接也失敗:', retryError);
+            console.error('❌ 重試連接失敗:', retryError instanceof Error ? retryError.message : retryError);
             throw retryError;
           }
         } else {

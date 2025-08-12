@@ -39,20 +39,22 @@ function App() {
 />
 ```
 
-### In Three-Column Layout
+### In Two-Column Layout
 
 ```tsx
-import { ThreeColumnLayout } from './components/layout/ThreeColumnLayout';
+import { TwoColumnLayout } from './components/layout/TwoColumnLayout';
 import { ConsoleSidebar } from './components/console-sidebar';
 
 function App() {
   return (
-    <ThreeColumnLayout
+    <TwoColumnLayout
       leftPanel={<LeftSidebar />}
-      rightPanel={<ConsoleSidebar />}
     >
-      <MainContent />
-    </ThreeColumnLayout>
+      <div className="main-content">
+        <MainContent />
+        <ConsoleSidebar />
+      </div>
+    </TwoColumnLayout>
   );
 }
 ```

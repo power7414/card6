@@ -8,7 +8,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { ChatRoom, Message } from '../types/chat';
-import { chatRoomStorage, messageStorage, transcriptionStorage, settingsStorage } from '../lib/indexeddb';
+import { chatRoomStorage, messageStorage, settingsStorage } from '../lib/indexeddb';
 
 // Timeout ID for debounced transcript updates
 let transcriptUpdateTimeoutId: NodeJS.Timeout | null = null;

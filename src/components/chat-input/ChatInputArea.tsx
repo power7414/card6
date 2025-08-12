@@ -11,10 +11,11 @@ import './chat-input.scss';
 export const ChatInputArea: React.FC = () => {
   // console.log('🎨 [ChatInputArea] 組件渲染');
   const [inputText, setInputText] = React.useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [videoStream, setVideoStream] = React.useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { activeChatRoom } = useChatManager();
-  const { sendTextMessage, sendRealtimeInput, connected } = useConversation();
+  const { sendTextMessage, connected } = useConversation();
   const { inputTranscription, isRecording } = useTranscription();
   
   // 追蹤組件掛載/卸載

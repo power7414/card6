@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiUser, FiCpu, FiVolume2 } from 'react-icons/fi';
+import { FiUser, FiCpu } from 'react-icons/fi';
 import { Message } from '../../types/chat';
 
 interface MessageBubbleProps {
@@ -27,9 +27,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
         <div className="message-header">
           <span className="message-sender">
             {isUser ? '你' : 'AI 助手'}
-            {!isUser && message.isTyping && (
-              <FiVolume2 className="voice-indicator" title="正在播放語音" />
-            )}
           </span>
           <span className="message-time">
             {formatTime(message.timestamp)}
@@ -38,9 +35,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
         
         <div className="message-text">
           {message.content}
-          {!isUser && message.isTyping && (
-            <span className="typing-cursor">|</span>
-          )}
         </div>
         
         {message.transcription && (

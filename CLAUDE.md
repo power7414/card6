@@ -57,10 +57,10 @@ graph TB
 ### 核心架構元件
 
 #### 1. Presentation Layer (展示層)
-- **ThreeColumnLayout**: 主要佈局組件，實現響應式三欄設計
-- **TwoColumnLayout**: 雙欄佈局組件，提供簡化的佈局選項
-- **Feature Components**: 聊天室、對話區、輸入控制等功能組件
-- **Shared Components**: 錯誤邊界、摺疊面板、文字打字機效果等可重用組件
+- **TwoColumnLayout**: 主要佈局組件，實現響應式雙欄設計
+- **Feature Components**: 聊天室、對話區、輸入控制、音頻視覺化等功能組件
+- **Shared Components**: 錯誤邊界、摺疊面板等可重用組件
+- **Debug Components**: 開發調試工具組件（ToggleTest 等）
 
 #### 2. Application Layer (應用層)
 - **LiveAPIContext**: Live API 狀態管理和連接控制
@@ -76,6 +76,54 @@ graph TB
 - **Live API Client**: Gemini Live API 的封裝和管理
 - **IndexedDB Storage**: 本地數據存儲和查詢
 - **Audio Worklets**: Web Audio API 的高性能音頻處理
+
+---
+
+## 📁 當前組件結構
+
+### 主要組件目錄
+
+#### 佈局組件 (`src/components/layout/`)
+- **TwoColumnLayout.tsx**: 雙欄佈局組件，提供左側聊天室和主要內容區
+- **Header.tsx**: 應用程式頂部標題列
+- **layout.scss**: 佈局樣式定義
+
+#### 聊天功能 (`src/components/chat-*/`)
+- **chat-room-sidebar/**: 聊天室側邊欄管理
+- **conversation-display/**: 對話顯示區域
+- **chat-input/**: 聊天輸入控制區
+
+#### 音頻處理 (`src/components/audio-*/`)
+- **audio-visualizer/**: AI 音頻視覺化
+- **audio-pulse/**: 音頻脈衝效果
+- **wave-animation/**: 波形動畫效果
+
+#### 控制台和除錯 (`src/components/`)
+- **console-sidebar/**: 開發者控制台側邊欄
+- **debug/**: 除錯工具組件 (ToggleTest)
+
+#### 共用組件 (`src/components/shared/`)
+- **ErrorBoundary.tsx**: 錯誤邊界處理
+- **CollapsiblePanel.tsx**: 可摺疊面板組件
+
+### 核心檔案狀態
+
+#### ✅ 活躍使用的檔案
+- `TwoColumnLayout`: 主要佈局系統
+- `debug/ToggleTest`: 開發除錯工具
+- `utils/message-factory.ts`: 統一的訊息創建工廠函數
+- `utils/session-debug.ts`: 簡化的 session 除錯工具
+
+#### 🎯 核心 Hooks (9個)
+- `use-chat-manager.ts`: 聊天室管理核心
+- `use-transcription.ts`: 整合轉錄功能（包含 Live API 整合）
+- `use-conversation.ts`: 對話發送功能
+- `use-conversation-events.ts`: Live API 事件處理
+- `use-live-api.ts`: Live API 連接管理
+- `use-session-resumption.ts`: Session 恢復功能
+- `use-webcam.ts`: 網路攝影機控制
+- `use-screen-capture.ts`: 螢幕分享功能
+- `use-media-stream-mux.ts`: 媒體流類型定義
 
 ---
 
@@ -343,43 +391,101 @@ interface ChatManager {
 }
 ```
 
-#### use-transcription-integration.ts
-轉錄整合邏輯：
+#### use-transcription.ts
+整合轉錄邏輯（重構後統一）：
 
 ```typescript
-interface TranscriptionIntegration {
-  // Real-time transcription
-  currentTranscript: string;
-  isTranscribing: boolean;
+interface UseTranscriptionOptions {
+  // 是否啟用 Live API 事件整合
+  enableLiveAPIIntegration?: boolean;
+}
+
+interface UseTranscriptionResult {
+  // State
+  inputTranscription: TranscriptionState;
+  outputTranscription: TranscriptionState;
+  isRecording: boolean;
   
-  // Integration methods
-  startTranscription: (options?: TranscriptionOptions) => Promise<void>;
-  stopTranscription: () => Promise<void>;
-  updateTranscript: (transcript: string) => void;
-  sendTranscript: () => Promise<void>;
+  // Actions
+  startInputTranscription: () => void;
+  stopInputTranscription: () => void;
+  clearTranscriptions: () => void;
   
-  // Event handlers
-  onTranscriptionUpdate: (handler: (transcript: string) => void) => void;
-  onTranscriptionComplete: (handler: (finalTranscript: string) => void) => void;
+  // Live API specific handlers
+  setInputTranscriptionDirect: (text: string, isFinal: boolean) => void;
+  setOutputTranscriptionDirect: (text: string, isFinal: boolean) => void;
+}
+
+// 便利函數，啟用 Live API 整合
+export function useTranscriptionIntegration() {
+  return useTranscription({ enableLiveAPIIntegration: true });
 }
 ```
 
 #### use-session-resumption.ts
-Session 恢復邏輯：
+Session 恢復邏輯（符合官方標準）：
 
 ```typescript
-interface SessionResumption {
-  // State
-  canResume: boolean;
-  isResuming: boolean;
-  resumeError: string | null;
+interface UseSessionResumptionReturn {
+  // 官方標準 API
+  storeSessionHandle: (chatRoomId: string, handle: string) => Promise<void>;
+  getSessionHandle: (chatRoomId: string) => string | null;
+  clearSessionHandle: (chatRoomId: string) => Promise<void>;
+  hasValidSession: (chatRoomId: string) => boolean;
+  cleanupExpiredSessions: (chatRoomId?: string) => Promise<void>;
   
-  // Actions
-  saveSession: (snapshot: SessionSnapshot) => Promise<void>;
-  resumeSession: (sessionId: string) => Promise<void>;
-  clearSession: (sessionId: string) => Promise<void>;
-  listSessions: () => Promise<SessionSummary[]>;
+  // 向後相容 API
+  handleSessionResumptionUpdate: (chatRoomId: string, update: SessionResumptionUpdate) => Promise<void>;
+  
+  // 統計資訊
+  getSessionStats: () => { totalSessions: number; roomsWithSessions: string[] };
 }
+```
+
+### 🛠️ 工具系統
+
+#### message-factory.ts
+統一的訊息創建工廠函數：
+
+```typescript
+// 通用訊息創建函數
+export const createMessage = (
+  type: 'user' | 'assistant',
+  content: string,
+  options: Partial<Message> = {}
+): Message => { /* ... */ };
+
+// 便利函數
+export const createUserMessage = (content: string, options?: Partial<Message>): Message;
+export const createAssistantMessage = (content: string, options?: Partial<Message>): Message;
+export const createErrorMessage = (error: unknown): Message;
+```
+
+**設計目的**: 
+- 消除多個 hooks 中重複的訊息創建邏輯
+- 統一訊息 ID 生成策略
+- 提供類型安全的訊息創建接口
+
+#### session-debug.ts
+簡化的 session 除錯工具：
+
+```typescript
+class SimpleSessionDebugLogger {
+  setEnabled(enabled: boolean): void;
+  log(event: string, data?: any): void;
+  getLogs(): SessionDebugInfo[];
+  clearLogs(): void;
+  getReport(): string;
+}
+
+// 全域存取（開發環境）
+window.sessionDebug = {
+  enable: () => sessionDebugLogger.setEnabled(true),
+  disable: () => sessionDebugLogger.setEnabled(false),
+  getLogs: () => sessionDebugLogger.getLogs(),
+  getReport: () => console.log(sessionDebugLogger.getReport()),
+  clear: () => sessionDebugLogger.clearLogs()
+};
 ```
 
 ### Hook 組合模式
@@ -1320,24 +1426,49 @@ describe('Component/Hook/Function Name', () => {
 
 ## 📝 變更日誌
 
+### v0.1.2 (2025-08-12)
+#### 🎯 重大重構
+- ♻️ **Hook 系統重構**: 整合轉錄功能，`useTranscription` 現支援 `enableLiveAPIIntegration` 選項
+- 🏭 **訊息工廠系統**: 新增 `message-factory.ts` 統一所有訊息創建邏輯
+- 🔧 **Session 管理優化**: 改進 `use-session-resumption.ts` 符合官方標準
+- 🔍 **除錯工具簡化**: 重構 session debug 系統，提供簡潔的開發工具
+
+#### 新增
+- ✨ `utils/message-factory.ts`: 統一的訊息創建工廠函數
+- ✨ `utils/session-debug.ts`: 簡化的 session 除錯工具
+- ✨ 智慧聊天室切換: 支援等待 session handle 的邏輯
+- ✨ Live API 整合轉錄: `useTranscription` 現可處理輸入轉錄事件
+
+#### 改進
+- 🎨 消除重複訊息創建邏輯：所有 hooks 現使用統一的 message factory
+- ⚡ Session 恢復機制優化：支援自動過期檢查和清理
+- 🔧 轉錄系統整合：移除重複的轉錄整合邏輯
+- 📱 聊天室切換智慧化：等待 session handle 後再進行切換
+
+#### 移除
+- 🗑️ 移除重複的訊息創建函數（分散在各 hooks 中）
+- 🗑️ 簡化 utils 目錄：只保留核心工具檔案
+- 🗑️ 清理未使用的 session 相關檔案
+
 ### v0.1.1 (2025-08-12)
 #### 新增
-- ✨ 新增 TwoColumnLayout 雙欄佈局組件
-- ✨ 添加 TypewriterText 文字打字機效果組件
+- ✨ 新增 TwoColumnLayout 雙欄佈局組件作為主要佈局系統
 - ✨ 實作 WaveAnimation 波形動畫組件
 - ✨ 增加 AudioPulse 音頻脈衝視覺效果
 - ✨ 新增 debug 組件包含 ToggleTest 測試工具
 
 #### 改進
-- 🎨 重構組件架構，提升代碼組織性
+- 🎨 重構組件架構，採用雙欄佈局提升使用體驗
 - ⚡ 優化音頻視覺化系統，新增多種視覺效果
 - 🔧 改善控制台系統，新增語法高亮功能
 - 📱 提升佈局靈活性，支援更多配置選項
+- 🧹 簡化 UI 狀態管理，移除未使用的 rightPanel 狀態
 
 #### 修復
 - 🐛 移除過時的 debug-panel 組件
 - 🐛 清理未使用的文檔和測試文件
 - 🐛 修復組件命名和路徑一致性
+- 🗑️ 移除未使用的 ThreeColumnLayout 組件和相關檔案
 
 ### v0.1.0 (2025-01-08)
 #### 新增

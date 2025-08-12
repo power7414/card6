@@ -24,7 +24,6 @@ import {
   LiveServerMessage,
   LiveServerToolCall,
   LiveServerToolCallCancellation,
-  Modality,
   Part,
   Session,
 } from "@google/genai";
@@ -253,8 +252,8 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     const enhancedConfig = {
       ...config,
       contextWindowCompression: { slidingWindow: {} },
-      // Only include sessionResumption if we have a valid session handle
-      ...(sessionHandle ? { sessionResumption: { handle: sessionHandle } } : {})
+      // Always include sessionResumption to enable the feature
+      sessionResumption: sessionHandle ? { handle: sessionHandle } : {}
     };
     
     console.log('📋 Session resumption 配置:', enhancedConfig.sessionResumption);
@@ -366,12 +365,14 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     
     // Handle Session Resumption Update
     if ('sessionResumptionUpdate' in message && message.sessionResumptionUpdate) {
+      console.log('🔍 [Live API] 收到 sessionResumptionUpdate 原始訊息:', message.sessionResumptionUpdate);
       const update = message.sessionResumptionUpdate as any;
       const resumptionData = {
         resumable: update.resumable || false,
         newHandle: update.newHandle || null
       };
       this.log("server.session_resumption_update", `resumable: ${resumptionData.resumable}, newHandle: ${resumptionData.newHandle}`);
+      console.log('📝 [Live API] 處理後的 session resumption 資料:', resumptionData);
       this.emit("session_resumption_update", resumptionData);
       return;
     }

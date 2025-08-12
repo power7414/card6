@@ -1,6 +1,17 @@
-import { useCallback, useRef, useState, useMemo } from 'react';
+import { useCallback, useRef, useState, useMemo, useEffect } from 'react';
 import { TranscriptionState, TranscriptionSegment } from '../types/transcription';
 import { useLiveAPIContext } from '../contexts/LiveAPIContext';
+import { usePersistentChatStore } from '../stores/chat-store-persistent';
+import { useChatManager } from './use-chat-manager';
+import { createUserMessage } from '../utils/message-factory';
+
+export interface UseTranscriptionOptions {
+  /**
+   * 是否啟用 Live API 事件整合
+   * 設為 true 時會自動註冊轉錄事件監聽器
+   */
+  enableLiveAPIIntegration?: boolean;
+}
 
 export interface UseTranscriptionResult {
   // State
@@ -22,8 +33,11 @@ export interface UseTranscriptionResult {
   setOutputTranscriptionDirect: (text: string, isFinal: boolean) => void;
 }
 
-export function useTranscription(): UseTranscriptionResult {
+export function useTranscription(options: UseTranscriptionOptions = {}): UseTranscriptionResult {
+  const { enableLiveAPIIntegration = false } = options;
   const { client, connected } = useLiveAPIContext();
+  const { addMessage, updateMessage } = usePersistentChatStore();
+  const { activeChatRoom } = useChatManager();
   
   // Input transcription state (user speech)
   const [inputTranscription, setInputTranscription] = useState<TranscriptionState>({
@@ -42,6 +56,9 @@ export function useTranscription(): UseTranscriptionResult {
   const [isRecording, setIsRecording] = useState(false);
   const inputSegmentsRef = useRef<TranscriptionSegment[]>([]);
   const outputSegmentsRef = useRef<TranscriptionSegment[]>([]);
+  
+  // Live API integration - 追蹤當前用戶語音訊息的 ID
+  const currentUserMessageRef = useRef<string | null>(null);
   
   // Memoized transcript builders for performance
   const buildTranscript = useCallback((segments: TranscriptionSegment[]) => {
@@ -149,6 +166,63 @@ export function useTranscription(): UseTranscriptionResult {
       status: isFinal ? 'complete' : 'processing'
     });
   }, []);
+
+  // Live API 事件整合 (僅在啟用時執行)
+  useEffect(() => {
+    if (!enableLiveAPIIntegration || !client) {
+      return;
+    }
+
+    // 處理用戶語音輸入轉錄事件
+    const onInputTranscription = (data: { text: string; isFinal?: boolean }) => {
+      const transcriptionText = data.text?.trim();
+      if (transcriptionText) {
+        // 1. 更新轉錄狀態
+        setInputTranscriptionDirect(transcriptionText, data.isFinal ?? false);
+        
+        // 2. 只有在有活動聊天室時才顯示在對話框中
+        if (!activeChatRoom) {
+          return;
+        }
+        
+        // 3. 將轉錄顯示在對話框中
+        if (!currentUserMessageRef.current) {
+          // 創建新的用戶語音訊息
+          const userMessage = createUserMessage(transcriptionText, { isTyping: !data.isFinal });
+          currentUserMessageRef.current = userMessage.id;
+          addMessage(activeChatRoom, userMessage);
+        } else {
+          // 更新現有的用戶語音訊息
+          updateMessage?.(activeChatRoom, currentUserMessageRef.current, (msg) => {
+            return { 
+              ...msg, 
+              content: transcriptionText, 
+              isTyping: !data.isFinal 
+            };
+          });
+        }
+        
+        // 當轉錄完成時，重置當前訊息 ID
+        if (data.isFinal) {
+          currentUserMessageRef.current = null;
+        }
+      }
+    };
+
+    // 處理 turnComplete 事件 - 重置用戶訊息追蹤
+    const onTurnComplete = () => {
+      currentUserMessageRef.current = null;
+    };
+
+    // 註冊事件監聽器
+    client.on('input_transcription', onInputTranscription);
+    client.on('turncomplete', onTurnComplete);
+
+    return () => {
+      client.off('input_transcription', onInputTranscription);
+      client.off('turncomplete', onTurnComplete);
+    };
+  }, [enableLiveAPIIntegration, client, setInputTranscriptionDirect, activeChatRoom, addMessage, updateMessage]);
   
   // Memoize the return object to prevent unnecessary re-renders
   return useMemo(() => ({
@@ -174,4 +248,9 @@ export function useTranscription(): UseTranscriptionResult {
     setInputTranscriptionDirect,
     setOutputTranscriptionDirect
   ]);
+}
+
+// 為了向後相容，提供一個專門的整合 hook
+export function useTranscriptionIntegration() {
+  return useTranscription({ enableLiveAPIIntegration: true });
 }

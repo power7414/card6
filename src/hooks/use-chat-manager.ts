@@ -17,7 +17,7 @@ export function useChatManager() {
     clearError
   } = usePersistentChatStore();
   
-  const { connected, disconnect, connectWithResumption } = useLiveAPIContext();
+  const { connected, disconnect } = useLiveAPIContext();
 
   // Initialize the store when the hook is first used
   // Only call initialize once by using a ref to track initialization
@@ -63,36 +63,63 @@ export function useChatManager() {
       // 記錄原來的連接狀態
       const wasConnected = connected;
       
-      // 如果目前有連接，斷開連接（這會觸發 session 保存）
+      // 智慧斷線邏輯：如果有 handle 就直接斷線，沒有就等待
       if (wasConnected) {
-        console.log('📡 斷開當前連接並保存 session...');
-        await disconnect();
-        // 給一點時間讓 session 更新處理完成
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const currentRoom = chatRooms.find(room => room.id === activeChatRoom);
+        const hasSessionHandle = currentRoom?.session?.sessionHandle;
+        
+        if (hasSessionHandle) {
+          console.log('📡 當前聊天室已有 session handle，直接斷開連接');
+          await disconnect();
+        } else {
+          console.log('⏳ 當前聊天室沒有 session handle，等待接收...');
+          
+          // 等待最多 5 秒來接收 session handle
+          const startTime = Date.now();
+          const timeout = 5000; // 5 秒超時
+          let waitInterval: NodeJS.Timeout | null = null;
+          
+          const waitForHandle = new Promise<void>((resolve) => {
+            waitInterval = setInterval(() => {
+              const updatedRoom = usePersistentChatStore.getState().chatRooms.find(
+                room => room.id === activeChatRoom
+              );
+              
+              if (updatedRoom?.session?.sessionHandle) {
+                console.log('✅ 收到 session handle，現在斷開連接');
+                if (waitInterval) clearInterval(waitInterval);
+                resolve();
+              } else if (Date.now() - startTime > timeout) {
+                console.warn('⚠️ 等待 session handle 超時（5秒），仍然斷開連接');
+                console.log('📝 除錯資訊：可能 Live API 沒有發送 session_resumption_update');
+                if (waitInterval) clearInterval(waitInterval);
+                resolve();
+              }
+            }, 100); // 每 100ms 檢查一次
+          });
+          
+          await waitForHandle;
+          await disconnect();
+        }
+        
+        // 給一點時間讓斷線處理完成
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
       
       // 切換到新聊天室
       await setActiveChatRoom(chatRoomId);
       console.log('✅ 已切換到聊天室:', chatRoomId);
       
-      // 只有在明確斷開連接後才自動重連
-      // 避免與手動連接競爭
+      // 保持原有邏輯：不自動連接，等待使用者手動連接
       if (wasConnected) {
         console.log('🔌 等待用戶手動連接到新聊天室...');
         console.log('💡 提示：請點擊連接按鈕以連接到新聊天室');
-        // 移除自動重連，讓用戶手動控制
-        // try {
-        //   await connectWithResumption(chatRoomId);
-        //   console.log('✅ 自動連接成功');
-        // } catch (error) {
-        //   console.warn('⚠️ 自動連接失敗，需手動連接:', error);
-        // }
       }
       
     } catch (error) {
       console.error('Failed to switch chat room:', error);
     }
-  }, [setActiveChatRoom, connected, disconnect, activeChatRoom]);
+  }, [setActiveChatRoom, connected, disconnect, activeChatRoom, chatRooms]);
 
   // Memoize active chat room lookup to prevent unnecessary recalculations
   const getActiveChatRoom = useMemo(() => {

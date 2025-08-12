@@ -3,6 +3,7 @@ import { useLiveAPIContext } from '../contexts/LiveAPIContext';
 import { usePersistentChatStore } from '../stores/chat-store-persistent';
 import { useChatManager } from './use-chat-manager';
 import { useUIStore } from '../stores/ui-store';
+import { createUserMessage, createErrorMessage } from '../utils/message-factory';
 
 export function useConversation() {
   const { client, connected } = useLiveAPIContext();
@@ -10,20 +11,7 @@ export function useConversation() {
   const { activeChatRoom, getActiveChatRoom } = useChatManager();
   const { setShowWaveAnimation } = useUIStore();
 
-  // Memoize message creation functions to prevent recreating objects
-  const createUserMessage = useCallback((text: string) => ({
-    id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    type: 'user' as const,
-    content: text.trim(),
-    timestamp: new Date()
-  }), []);
-
-  const createErrorMessage = useCallback((error: unknown) => ({
-    id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    type: 'assistant' as const,
-    content: `發送失敗: ${error instanceof Error ? error.message : '未知錯誤'}`,
-    timestamp: new Date()
-  }), []);
+  // 使用共用的訊息工廠函數
 
   // 發送文字訊息到 AI
   const sendTextMessage = useCallback(async (text: string) => {
@@ -54,7 +42,7 @@ export function useConversation() {
       const errorMessage = createErrorMessage(error);
       addMessage(activeRoom.id, errorMessage);
     }
-  }, [getActiveChatRoom, addMessage, client, connected, setShowWaveAnimation, createUserMessage, createErrorMessage]);
+  }, [getActiveChatRoom, addMessage, client, connected, setShowWaveAnimation]);
 
   // 發送語音數據到 AI (實時音頻輸入)
   const sendAudioData = useCallback(async (audioData: string) => {

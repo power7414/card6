@@ -74,14 +74,15 @@ console.log('Migration performed:', result.migrationPerformed);
 
 ### 4. Unified Storage Service
 
-The `StorageService` provides a unified interface with automatic fallbacks:
+The direct IndexedDB APIs provide optimal performance:
 
 ```typescript
-import { storageService } from './lib/storage-service';
+import { chatRoomStorage, messageStorage } from './lib/indexeddb';
 
-// Automatically uses IndexedDB, falls back to localStorage, then memory
-const rooms = await storageService.getAllChatRooms();
-await storageService.saveChatRoom(room);
+// Direct IndexedDB access with full type safety
+const rooms = await chatRoomStorage.getAllChatRooms();
+await chatRoomStorage.saveChatRoom(room);
+await messageStorage.addMessage(roomId, message);
 ```
 
 ## Usage
@@ -125,20 +126,20 @@ const saveChatRoom = async (room: ChatRoom) => {
 
 ### Advanced Usage
 
-#### Using the Storage Service (Recommended)
+#### Using Direct APIs (Recommended)
 
-The storage service provides the most robust approach with automatic fallbacks:
+Use the direct IndexedDB APIs for the most control and performance:
 
 ```typescript
-import { storageService } from './lib/storage-service';
+import { chatRoomStorage, messageStorage, settingsStorage } from './lib/indexeddb';
 
-// Get storage health
-const health = await storageService.getHealth();
-console.log('Active storage:', health.activeStorage);
+// Get storage info
+const info = await getStorageInfo();
+console.log('IndexedDB connected:', info.isIndexedDBConnected);
 
-// Use unified API
-const rooms = await storageService.getAllChatRooms();
-await storageService.setSetting('theme', 'dark');
+// Use direct APIs
+const rooms = await chatRoomStorage.getAllChatRooms();
+await settingsStorage.setSetting('theme', 'dark');
 ```
 
 #### Direct API Usage
@@ -304,13 +305,15 @@ The migration system handles:
 ### Debug Tools
 
 ```typescript
-import { runAllExamples, clearTestData } from './lib/indexeddb/usage-examples';
+import { getStorageInfo, chatRoomStorage } from './lib/indexeddb';
 
-// Run comprehensive tests
-await runAllExamples();
+// Check storage health
+const info = await getStorageInfo();
+console.log('Storage status:', info);
 
-// Clean up test data
-await clearTestData();
+// Verify data integrity
+const rooms = await chatRoomStorage.getAllChatRooms();
+console.log('Chat rooms count:', rooms.length);
 ```
 
 ### Logging
@@ -318,19 +321,18 @@ await clearTestData();
 Enable detailed logging:
 
 ```typescript
-import { StorageService } from './lib/storage-service';
+import { getStorageInfo } from './lib/indexeddb';
 
-const service = new StorageService({
-  enableLogging: true,
-  enableIndexedDB: true,
-  enableLocalStorageFallback: true
-});
+// Monitor IndexedDB health
+const info = await getStorageInfo();
+console.log('IndexedDB connected:', info.isIndexedDBConnected);
+console.log('Storage quota:', info.estimatedQuota);
 ```
 
 ## Best Practices
 
 1. **Always handle errors** - Storage operations can fail
-2. **Use the StorageService** - Provides automatic fallbacks
+2. **Use direct APIs** - Provides best performance and type safety
 3. **Initialize early** - Set up storage before using other components
 4. **Monitor health** - Check storage status periodically
 5. **Batch operations** - Group related operations for better performance

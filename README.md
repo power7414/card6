@@ -1,8 +1,8 @@
 # Google Gemini Live API 對話測試平台
 
-一個專業的多模態 AI 對話平台，基於 Google Gemini Live API 構建，支援即時語音對話、多聊天室管理、session resumption 和高級音頻視覺化功能。
+一個專業的多模態 AI 對話平台，基於 Google Gemini Live API 構建。採用現代化 React 架構，支援即時語音對話、智能聊天室管理、自動 session resumption 和高級音頻視覺化功能。
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6+-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.3+-61DAFB.svg)](https://reactjs.org/)
 [![Zustand](https://img.shields.io/badge/Zustand-5.0+-orange.svg)](https://zustand.surge.sh/)
 [![Testing](https://img.shields.io/badge/Testing-Jest%20%2B%20RTL-green.svg)](https://jestjs.io/)
@@ -17,9 +17,9 @@
 
 ### 💬 智能聊天室管理
 - **多聊天室支援**: 創建和管理多個獨立的對話環境
-- **快速切換**: 在不同對話間快速切換，保持各自的狀態
-- **持久化儲存**: 使用 IndexedDB 完整保存對話歷史
-- **Session Resumption**: 支援對話 session 的中斷和恢復
+- **智能切換**: 自動等待 session handle，確保無縫對話切換
+- **持久化儲存**: IndexedDB 儲存，optimistic updates 提升響應速度
+- **Session Resumption**: 15分鐘內自動恢復中斷的對話 session
 
 ### 🎙️ 高級轉錄功能
 - **即時轉錄**: 語音轉文字的即時顯示
@@ -28,16 +28,16 @@
 - **音頻視覺化**: 豐富的音頻波形和脈衝視覺效果
 
 ### 🎨 專業使用者介面
-- **三欄佈局**: 左側聊天室列表、中間對話區、右側除錯面板
+- **雙欄佈局**: 左側聊天室列表、右側主要對話區域，簡潔高效
 - **響應式設計**: 完美適配桌面、平板和手機裝置
 - **收合面板**: 可隱藏側邊欄以獲得更大的對話空間
 - **深色主題**: 護眼的深色界面設計，適合長時間使用
 
 ### 🔧 開發者工具
-- **控制台日誌**: 查看系統運行狀態和除錯資訊
-- **語法高亮**: 支援多種程式語言的語法高亮顯示
-- **篩選搜索**: 快速定位和分析問題
-- **除錯模式**: 提供開發測試和診斷工具
+- **Session 除錯**: 完整的 session resumption 追蹤和診斷
+- **智能 Hook 系統**: 9 個精心設計的 hooks 處理複雜業務邏輯
+- **統一訊息工廠**: 避免重複程式碼，確保資料一致性
+- **除錯模式**: 開發環境自動啟用詳細日誌和工具
 
 ## 🚀 快速開始
 
@@ -129,8 +129,7 @@ src/
 ├── components/                  # React 組件
 │   ├── layout/                 # 佈局相關組件
 │   │   ├── Header.tsx
-│   │   ├── ThreeColumnLayout.tsx
-│   │   └── TwoColumnLayout.tsx
+│   │   └── TwoColumnLayout.tsx     # 雙欄佈局組件
 │   ├── chat-room-sidebar/      # 聊天室側邊欄
 │   │   ├── ChatSidebar.tsx
 │   │   ├── ChatList.tsx
@@ -162,16 +161,18 @@ src/
 │   │   └── ToggleTest.tsx
 │   └── shared/               # 共用組件
 │       ├── ErrorBoundary.tsx
-│       ├── CollapsiblePanel.tsx
-│       └── TypewriterText.tsx
-├── hooks/                    # 自定義 React Hooks
+│       └── CollapsiblePanel.tsx
+├── hooks/                    # 自定義 React Hooks (9 個核心 hooks)
 │   ├── use-live-api.ts      # Live API 整合
-│   ├── use-chat-manager.ts  # 聊天管理
-│   ├── use-transcription.ts # 轉錄功能
-│   └── use-session-resumption.ts # Session 恢復
+│   ├── use-chat-manager.ts  # 聊天管理 (智能切換)
+│   ├── use-transcription.ts # 轉錄功能 (支援 Live API 整合)
+│   ├── use-session-resumption.ts # Session 恢復 (15分鐘過期)
+│   ├── use-conversation.ts  # 對話操作 (文字/語音/媒體)
+│   ├── use-conversation-events.ts # Live API 事件處理
+│   └── use-transcription-integration.ts # 轉錄整合 (向後相容)
 ├── stores/                  # Zustand 狀態管理
-│   ├── chat-store-persistent.ts # 持久化聊天狀態儲存
-│   └── ui-store.ts          # 使用者介面狀態
+│   ├── chat-store-persistent.ts # 持久化聊天狀態 (optimistic updates)
+│   └── ui-store.ts          # UI 狀態 (雙欄佈局控制)
 ├── contexts/               # React Context
 │   └── LiveAPIContext.tsx  # Live API 上下文
 ├── lib/                   # 核心函式庫
@@ -180,8 +181,11 @@ src/
 │   ├── audio-recorder.ts  # 音頻錄製
 │   └── genai-live-client.ts # Gemini 客戶端
 ├── types/                 # TypeScript 類型定義
-│   ├── chat.ts
-│   └── transcription.ts
+│   ├── chat.ts            # 聊天室和訊息類型
+│   └── transcription.ts   # 轉錄相關類型
+├── utils/                 # 工具函數
+│   ├── message-factory.ts # 統一訊息建立工廠
+│   └── session-debug.ts   # Session 除錯工具
 └── styles/               # 樣式檔案
     └── variables.scss
 ```
@@ -213,7 +217,7 @@ npm run bundle-analyzer # 分析 bundle 大小
 ## 📱 響應式設計支援
 
 ### 桌面版 (>1024px)
-- 完整三欄佈局顯示
+- 完整雙欄佈局顯示，簡潔高效
 - 所有功能完全可用
 - 最佳的使用體驗
 
@@ -404,4 +408,66 @@ npm run test:coverage   # 生成覆蓋率報告
 
 **Happy Coding! 🚀**
 
-*最後更新: 2025-08-12*
+*最後更新: 2025-08-12 | 版本: v0.1.2*
+
+---
+
+## 📜 更新日誌
+
+### v0.1.2 (2025-08-12)
+**Hook 系統重構和架構優化**
+
+#### 🎆 新增功能
+- ✨ 新增 `message-factory.ts` 統一訊息建立工廠
+- ✨ 新增 `session-debug.ts` 精簡的 session 除錯工具
+- ✨ 新增 `use-transcription-integration.ts` 向後相容 hook
+
+#### 🔄 重構和改進
+- ⚡ **智能切換**: `use-chat-manager.ts` 新增 5秒等待機制
+- ⚡ **Hook 整合**: `useTranscription` 支援 Live API 整合選項
+- ⚡ **Session 管理**: 15分鐘過期機制，符合官方規範
+- 🚀 **統一工廠**: 消除重複的 `createMessage` 函式
+
+#### 🧹 清理和移除
+- 🗑️ 移除 `use-ai-audio-status.ts` (完全未使用)
+- 🗑️ 移除 `ThreeColumnLayout.tsx` (未使用)
+- 🗑️ 清理 `session-resumption-demo.tsx`
+- 🗑️ 清理整合多個 session debug 檔案
+
+#### 📚 文檔更新
+- 📝 更新 CLAUDE.md 和 README.md 反映現有架構
+- 📝 更新所有組件說明和使用方式
+- 📝 新增完整的 hooks 架構說明
+
+### v0.1.1 (2025-08-11)
+- ✨ 新增雙欄佈局系統
+- ✨ 新增多種音頻視覺化效果
+- ✨ 新增 debug 組件和測試工具
+
+### v0.1.0 (2025-01-08)
+- ✨ 初始版本：完整的 Google Gemini Live API 整合
+- ✨ 多聊天室管理系統
+- ✨ IndexedDB 數據持久化
+- ✨ Session resumption 功能
+
+---
+
+## 🎯 發展路線圖
+
+### v0.1.3 即將推出
+- [ ] 完整的測試套件 (Jest + RTL)
+- [ ] 性能監控和優化工具
+- [ ] 更多音頻視覺化效果
+- [ ] 支援更多檔案格式上傳
+
+### v0.2.0 長期計劃
+- [ ] 多語言介面支援 (i18n)
+- [ ] 主題系統和自定義工具
+- [ ] PWA 支援和離線模式
+- [ ] 更多 AI 模型整合 (Claude, GPT)
+
+### 未來願景
+- [ ] 雲端同步和協作功能
+- [ ] 插件系統和第三方整合
+- [ ] 企業版功能 (用戶管理, 權限控制)
+- [ ] 智能分析和洞察儀表板

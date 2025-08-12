@@ -350,7 +350,6 @@ export class DataMigrator {
       }
 
       const backupKey = `localStorage_backup_${new Date().toISOString()}`;
-      const backupData = JSON.stringify(backup);
       
       // Store backup in IndexedDB
       await settingsStorage.setSetting(backupKey, backup);

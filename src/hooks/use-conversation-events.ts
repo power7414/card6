@@ -3,6 +3,7 @@ import { useLiveAPIContext } from '../contexts/LiveAPIContext';
 import { usePersistentChatStore } from '../stores/chat-store-persistent';
 import { useChatManager } from './use-chat-manager';
 import { useUIStore } from '../stores/ui-store';
+import { createAssistantMessage } from '../utils/message-factory';
 
 /**
  * 專門處理 Live API 事件的 Hook
@@ -27,14 +28,7 @@ export function useConversationEvents() {
   const currentAiMessageRef = useRef<string | null>(null);
   const accumulatedTranscriptRef = useRef<string>('');
 
-  // 創建助理訊息的輔助函數
-  const createAssistantMessage = useCallback((content: string, isTyping = false) => ({
-    id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    type: 'assistant' as const,
-    content,
-    timestamp: new Date(),
-    isTyping
-  }), []);
+  // 使用共用的訊息工廠函數
 
   // 監聽聊天室切換，重置 AI 回應狀態
   useEffect(() => {
@@ -96,7 +90,7 @@ export function useConversationEvents() {
         // });
 
         if (!currentAiMessageRef.current) {
-          const aiMessage = createAssistantMessage(fullContent, true);
+          const aiMessage = createAssistantMessage(fullContent);
           currentAiMessageRef.current = aiMessage.id;
           // console.log('創建新的 AI 文字訊息:', aiMessage.id);
           addMessage(activeChatRoom, aiMessage);
@@ -107,7 +101,7 @@ export function useConversationEvents() {
               //   oldLength: msg.content.length,
               //   newLength: fullContent.length
               // });
-              return { ...msg, content: fullContent, isTyping: true };
+              return { ...msg, content: fullContent };
             }
             return msg;
           });
@@ -125,13 +119,6 @@ export function useConversationEvents() {
       setShowWaveAnimation(false);
       setCurrentVolume(0);
       
-      // 將當前 AI 訊息設為非打字狀態
-      if (currentAiMessageRef.current && activeChatRoom) {
-        updateMessage?.(activeChatRoom, currentAiMessageRef.current, (msg) => ({
-          ...msg,
-          isTyping: false
-        }));
-      }
       
       // 重置當前 AI 訊息 ID 和累積器，準備下次對話
       currentAiMessageRef.current = null;
@@ -172,7 +159,7 @@ export function useConversationEvents() {
 
         if (!currentAiMessageRef.current) {
           // 創建新的 AI 訊息，使用累積的內容
-          const aiMessage = createAssistantMessage(fullTranscript, true);
+          const aiMessage = createAssistantMessage(fullTranscript);
           currentAiMessageRef.current = aiMessage.id;
           // console.log('✨ 創建新的 AI 語音訊息:', {
           //   id: aiMessage.id,
@@ -192,8 +179,7 @@ export function useConversationEvents() {
             // });
             return { 
               ...msg, 
-              content: fullTranscript, // 使用累積的完整內容
-              isTyping: !transcription.isFinal 
+              content: fullTranscript
             };
           });
         }
@@ -210,7 +196,7 @@ export function useConversationEvents() {
       client.off('output_transcription', stableHandleOutputTranscription);
       client.off('turncomplete', stableHandleTurnComplete);
     };
-  }, [client, activeChatRoom, addMessage, updateMessage, createAssistantMessage, setShowWaveAnimation, setCurrentVolume]);
+  }, [client, activeChatRoom, addMessage, updateMessage, setShowWaveAnimation, setCurrentVolume]);
 
   // 當新的文字訊息發送時，重置 AI 回應狀態
   const resetAIResponseState = useCallback(() => {
