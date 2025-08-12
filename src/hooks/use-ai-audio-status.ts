@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLiveAPIContext } from '../contexts/LiveAPIContext';
 import { useChatManager } from './use-chat-manager';
-import { useChatStore } from '../stores/chat-store';
+import { usePersistentChatStore } from '../stores/chat-store-persistent';
 import { Message } from '../types/chat';
 
 /**
@@ -12,13 +12,13 @@ export function useAIAudioStatus() {
   const [volume, setVolume] = useState(0);
   const { client } = useLiveAPIContext();
   const { activeChatRoom } = useChatManager();
-  const { chatRooms } = useChatStore();
+  const { chatRooms } = usePersistentChatStore();
 
-  console.log('🎯 useAIAudioStatus Hook 初始化', {
-    hasClient: !!client,
-    activeChatRoom,
-    chatRoomsCount: chatRooms.length
-  });
+  // console.log('🎯 useAIAudioStatus Hook 初始化', {
+  //   hasClient: !!client,
+  //   activeChatRoom,
+  //   chatRoomsCount: chatRooms.length
+  // });
   
   // 追蹤當前 AI 回應狀態
   const isAIRespondingRef = useRef(false);
@@ -30,27 +30,27 @@ export function useAIAudioStatus() {
     ? currentChatRoom.messages.some((msg: Message) => msg.type === 'assistant' && msg.isTyping)
     : false;
 
-  console.log('🔍 訊息狀態檢查:', {
-    activeChatRoom,
-    currentChatRoomExists: !!currentChatRoom,
-    messagesCount: currentChatRoom?.messages.length || 0,
-    hasTypingAIMessage,
-    typingMessages: currentChatRoom?.messages.filter((msg: Message) => msg.type === 'assistant' && msg.isTyping).length || 0
-  });
+  // console.log('🔍 訊息狀態檢查:', {
+  //   activeChatRoom,
+  //   currentChatRoomExists: !!currentChatRoom,
+  //   messagesCount: currentChatRoom?.messages.length || 0,
+  //   hasTypingAIMessage,
+  //   typingMessages: currentChatRoom?.messages.filter((msg: Message) => msg.type === 'assistant' && msg.isTyping).length || 0
+  // });
 
   useEffect(() => {
-    console.log('🎯 useAIAudioStatus useEffect 執行', { hasClient: !!client });
+    // console.log('🎯 useAIAudioStatus useEffect 執行', { hasClient: !!client });
     if (!client) {
-      console.log('❌ 沒有 client，退出 useEffect');
+      // console.log('❌ 沒有 client，退出 useEffect');
       return;
     }
 
     // 監聽音頻事件 - 當收到音頻數據時表示 AI 正在說話
     const handleAudio = (data: ArrayBuffer) => {
-      console.log('🎵 useAIAudioStatus: 收到音頻數據', {
-        byteLength: data.byteLength,
-        isAIPlaying: isAIRespondingRef.current
-      });
+      // console.log('🎵 useAIAudioStatus: 收到音頻數據', {
+      //   byteLength: data.byteLength,
+      //   isAIPlaying: isAIRespondingRef.current
+      // });
 
       if (data.byteLength > 0) {
         setIsAIPlaying(true);
@@ -66,7 +66,7 @@ export function useAIAudioStatus() {
         const finalVolume = Math.min(avgVolume, 1);
         setVolume(finalVolume);
 
-        console.log('📊 音量計算:', { avgVolume, finalVolume });
+        // console.log('📊 音量計算:', { avgVolume, finalVolume });
 
         // 清除之前的計時器
         if (volumeTimeoutRef.current) {
@@ -75,7 +75,7 @@ export function useAIAudioStatus() {
 
         // 設置計時器，如果一段時間沒有收到音頻數據就停止播放狀態
         volumeTimeoutRef.current = setTimeout(() => {
-          console.log('⏹️ 音頻超時，停止播放狀態');
+          // console.log('⏹️ 音頻超時，停止播放狀態');
           setIsAIPlaying(false);
           setVolume(0);
           isAIRespondingRef.current = false;
@@ -100,11 +100,11 @@ export function useAIAudioStatus() {
 
     // 監聽轉錄事件 - 當收到轉錄時表示 AI 正在說話
     const handleOutputTranscription = (transcription: any) => {
-      console.log('🎤 useAIAudioStatus: 收到轉錄事件', {
-        text: transcription.text,
-        isFinal: transcription.isFinal,
-        textLength: transcription.text?.length || 0
-      });
+      // console.log('🎤 useAIAudioStatus: 收到轉錄事件', {
+      //   text: transcription.text,
+      //   isFinal: transcription.isFinal,
+      //   textLength: transcription.text?.length || 0
+      // });
 
       if (transcription.text && !transcription.isFinal) {
         setIsAIPlaying(true);
@@ -115,7 +115,7 @@ export function useAIAudioStatus() {
         const finalVolume = simulatedVolume * 0.7; // 降低一點避免過於強烈
         setVolume(finalVolume);
         
-        console.log('📊 轉錄音量模擬:', { textLength, simulatedVolume, finalVolume });
+        // console.log('📊 轉錄音量模擬:', { textLength, simulatedVolume, finalVolume });
       }
     };
 
@@ -142,12 +142,12 @@ export function useAIAudioStatus() {
     }
   }, [hasTypingAIMessage]);
 
-  console.log('🎪 最終返回狀態:', {
-    isAIPlaying,
-    volume,
-    hasTypingAIMessage,
-    finalIsAIPlaying: isAIPlaying // 只使用實際的播放狀態，不再依賴 hasTypingAIMessage
-  });
+  // console.log('🎪 最終返回狀態:', {
+  //   isAIPlaying,
+  //   volume,
+  //   hasTypingAIMessage,
+  //   finalIsAIPlaying: isAIPlaying // 只使用實際的播放狀態，不再依賴 hasTypingAIMessage
+  // });
 
   return {
     isAIPlaying: isAIPlaying, // 移除 hasTypingAIMessage 的依賴

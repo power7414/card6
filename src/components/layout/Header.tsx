@@ -13,25 +13,33 @@ export const Header: React.FC<HeaderProps> = ({
   onSettingsClick,
   onHelpClick
 }) => {
-  const { connected, connectWithResumption } = useLiveAPIContext();
+  const { connected, connectWithResumption, sessionTimeLeft } = useLiveAPIContext();
   const { activeChatRoom, createNewChatRoom } = useChatManager();
 
   const handleConnect = async () => {
+    console.log('🎯 [Header] handleConnect 被呼叫，connected:', connected);
     if (!connected) {
       try {
         let targetChatRoom = activeChatRoom;
         
         // If no active chat room, create a new one
         if (!targetChatRoom) {
-          console.log('🏗️ 沒有活動聊天室，創建新的聊天室...');
+          console.log('🏗️ [Header] 沒有活動聊天室，創建新的聊天室...');
           targetChatRoom = await createNewChatRoom();
         }
         
-        console.log('🔌 使用 session resumption 連接到聊天室:', targetChatRoom);
+        console.log('🔌 [Header] 使用 session resumption 連接到聊天室:', {
+          chatRoomId: targetChatRoom,
+          activeChatRoom,
+          timestamp: new Date().toISOString()
+        });
         await connectWithResumption(targetChatRoom);
+        console.log('✅ [Header] connectWithResumption 完成');
       } catch (error) {
-        console.error('連接失敗:', error);
+        console.error('❌ [Header] 連接失敗:', error);
       }
+    } else {
+      console.log('⚠️ [Header] 已經連接，跳過連接動作');
     }
   };
 
@@ -53,6 +61,15 @@ export const Header: React.FC<HeaderProps> = ({
           {connected ? <FiWifi /> : <FiWifiOff />}
           <span>{connected ? '已連接' : '未連接'}</span>
         </button>
+        
+        {connected && sessionTimeLeft !== null && (
+          <div className="session-timer">
+            <span className="timer-label">剩餘時間：</span>
+            <span className="timer-value">
+              {Math.floor(sessionTimeLeft / 60)}:{String(sessionTimeLeft % 60).padStart(2, '0')}
+            </span>
+          </div>
+        )}
       </div>
       
       <div className="header-right">

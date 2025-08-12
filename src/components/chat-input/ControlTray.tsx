@@ -4,7 +4,7 @@
  */
 
 import cn from "classnames";
-import { memo, ReactNode, RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { memo, ReactNode, RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
 import { useChatManager } from "../../hooks/use-chat-manager";
 import { UseMediaStreamResult } from "../../hooks/use-media-stream-mux";
@@ -51,42 +51,92 @@ function ControlTray({
   onVideoStreamChange = () => {},
   supportsVideo = true,
 }: ControlTrayProps) {
-  const videoStreams = [useWebcam(), useScreenCapture()];
+  // console.log('🎨 [ControlTray] 組件渲染');
+  const webcam = useWebcam();
+  const screenCapture = useScreenCapture();
+  const videoStreams = useMemo(() => [webcam, screenCapture], [webcam, screenCapture]);
   const [activeVideoStream, setActiveVideoStream] =
     useState<MediaStream | null>(null);
-  const [webcam, screenCapture] = videoStreams;
   // inVolume state 已移除（不再需要圓形背景效果）
   const [audioRecorder] = useState(() => new AudioRecorder());
   const [muted, setMuted] = useState(false);
   const renderCanvasRef = useRef<HTMLCanvasElement>(null);
   const connectButtonRef = useRef<HTMLButtonElement>(null);
+  
+  // 追蹤組件掛載/卸載
+  // useEffect(() => {
+  //   console.log('🔵 [ControlTray] 組件掛載');
+  //   return () => {
+  //     console.log('🔴 [ControlTray] 組件卸載');
+  //   };
+  // }, []);
 
-  const { client, connected, connectWithResumption, disconnect: originalDisconnect, volume } =
+  const { client, connected, ready, connectWithResumption, disconnect: originalDisconnect, volume } =
     useLiveAPIContext();
   const { activeChatRoom, createNewChatRoom } = useChatManager();
     
   // Enhanced connect function that uses session resumption
   const enhancedConnect = useCallback(async () => {
-    if (!connected) {
-      try {
-        let targetChatRoom = activeChatRoom;
-        
-        // If no active chat room, create a new one
-        if (!targetChatRoom) {
-          console.log('🏗️ [ControlTray] 沒有活動聊天室，創建新的聊天室...');
-          targetChatRoom = await createNewChatRoom();
-        }
-        
-        console.log('🔌 [ControlTray] 使用 session resumption 連接到聊天室:', targetChatRoom);
-        await connectWithResumption(targetChatRoom);
-      } catch (error) {
-        console.error('[ControlTray] 連接失敗:', error);
+    // Check both connected and ready states to prevent duplicate connections
+    if (connected || client.status === "connecting" || client.status === "reconnecting") {
+      console.log('⚠️ [ControlTray] 已經連接或連接中，跳過連接動作', {
+        connected,
+        ready,
+        clientStatus: client.status
+      });
+      return;
+    }
+
+    try {
+      // 防止重複連接：檢查是否正在連接中
+      if (connectButtonRef.current?.disabled) {
+        console.log('⚠️ [ControlTray] 連接按鈕被禁用，跳過重複連接');
+        return;
+      }
+      
+      // 暫時禁用按鈕防止重複點擊
+      if (connectButtonRef.current) {
+        connectButtonRef.current.disabled = true;
+      }
+      
+      let targetChatRoom = activeChatRoom;
+      
+      // If no active chat room, create a new one
+      if (!targetChatRoom) {
+        console.log('🏗️ [ControlTray] 沒有活動聊天室，創建新的聊天室...');
+        targetChatRoom = await createNewChatRoom();
+      }
+      
+      console.log('🔌 [ControlTray] 使用 session resumption 連接到聊天室:', targetChatRoom);
+      await connectWithResumption(targetChatRoom);
+      console.log('✅ [ControlTray] connectWithResumption 完成');
+    } catch (error) {
+      console.error('❌ [ControlTray] 連接失敗:', error);
+      // Show user-friendly error message
+      if (error instanceof Error && error.message.includes('Setup timeout')) {
+        console.log('⚠️ [ControlTray] Live API 設置超時，請檢查網路連接或重試');
+      }
+    } finally {
+      // 重新啟用按鈕
+      if (connectButtonRef.current) {
+        connectButtonRef.current.disabled = false;
       }
     }
-  }, [connected, activeChatRoom, createNewChatRoom, connectWithResumption]);
+  }, [connected, ready, client.status, activeChatRoom, createNewChatRoom, connectWithResumption]);
+  
+  // 監控 useCallback 依賴性變化
+  // useEffect(() => {
+  //   console.log('🔄 [ControlTray] enhancedConnect dependencies 的變化:', {
+  //     connected,
+  //     activeChatRoom,
+  //     timestamp: Date.now()
+  //   });
+  // }, [connected, activeChatRoom, createNewChatRoom, connectWithResumption]);
 
   // Enhanced disconnect function that cleans up media devices
   const enhancedDisconnect = useCallback(async () => {
+    console.log('🔌 [ControlTray] enhancedDisconnect 被呼叫');
+    
     // Stop all video streams
     videoStreams.forEach((stream) => stream.stop());
     setActiveVideoStream(null);
@@ -97,7 +147,9 @@ function ControlTray({
     setMuted(true);
     
     // Perform original disconnect
+    // console.log('🔌 [ControlTray] 呼叫 originalDisconnect');
     await originalDisconnect();
+    // console.log('✅ [ControlTray] disconnect 完成');
   }, [videoStreams, audioRecorder, onVideoStreamChange, originalDisconnect]);
 
   useEffect(() => {
@@ -111,7 +163,8 @@ function ControlTray({
   // Audio recording and streaming
   useEffect(() => {
     const onData = (base64: string) => {
-      if (client && client.sendRealtimeInput) {
+      // 只有在 ready 狀態下才發送音頻數據
+      if (client && client.sendRealtimeInput && ready) {
         client.sendRealtimeInput([
           {
             mimeType: "audio/pcm;rate=16000",
@@ -121,7 +174,9 @@ function ControlTray({
       }
     };
     
-    if (connected && !muted && audioRecorder) {
+    // 只有在 ready 狀態下才開始音頻錄製
+    if (ready && !muted && audioRecorder) {
+      console.log('🎤 開始音頻錄製和傳輸');
       audioRecorder.on("data", onData).start();
     } else {
       audioRecorder.stop();
@@ -130,7 +185,7 @@ function ControlTray({
     return () => {
       audioRecorder.off("data", onData);
     };
-  }, [connected, client, muted, audioRecorder]);
+  }, [ready, client, muted, audioRecorder]);
 
   // Video streaming
   useEffect(() => {
@@ -159,19 +214,19 @@ function ControlTray({
         client.sendRealtimeInput([{ mimeType: "image/jpeg", data }]);
       }
       
-      if (connected) {
+      if (ready) {
         timeoutId = window.setTimeout(sendVideoFrame, 1000 / 0.5);
       }
     }
     
-    if (connected && activeVideoStream !== null) {
+    if (ready && activeVideoStream !== null) {
       requestAnimationFrame(sendVideoFrame);
     }
     
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [connected, activeVideoStream, client, videoRef]);
+  }, [ready, activeVideoStream, client, videoRef]);
 
   // Handler for swapping from one video-stream to the next
   const changeStreams = (next?: UseMediaStreamResult) => async () => {

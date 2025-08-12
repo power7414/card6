@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { usePersistentChatStore } from '../stores/chat-store-persistent';
 import { ChatRoomSession } from '../types/chat';
+import { sessionDebugLogger } from '../utils/session-debug';
 
 interface SessionResumptionUpdate {
   resumable: boolean;
@@ -88,42 +89,123 @@ export function useSessionResumption(options: UseSessionResumptionOptions = {}):
   
   const log = useCallback((message: string, data?: any) => {
     if (enableLogging) {
-      console.log(`[SessionResumption] ${message}`, data || '');
+      // Only log important events, not routine checks
+      if (message.includes('✅') || message.includes('❌') || message.includes('Handling') || message.includes('store')) {
+        console.log(`[SessionResumption] ${message}`, data || '');
+      }
     }
   }, [enableLogging]);
 
   const getSessionHandle = useCallback((chatRoomId: string): string | null => {
     const chatRoom = chatRooms.find(room => room.id === chatRoomId);
+    
     if (!chatRoom?.session) {
+      log(`⚠️ [getSessionHandle] 沒有找到 session 數據:`, chatRoomId);
       return null;
     }
 
     const { sessionHandle, lastConnected, isResumable } = chatRoom.session;
     
+    // Enhanced debugging for session validation
+    const sessionAge = lastConnected ? Date.now() - lastConnected.getTime() : null;
+    const isExpired = sessionAge ? sessionAge > maxSessionAge : true;
+    
+    sessionDebugLogger.log('session_handle_check', {
+      chatRoomId,
+      sessionHandle: sessionHandle,
+      resumable: isResumable,
+      indexedDBState: {
+        hasHandle: !!sessionHandle,
+        hasLastConnected: !!lastConnected,
+        isResumable,
+        sessionAgeMs: sessionAge,
+        isExpired,
+        maxSessionAge
+      }
+    });
+    
+    log(`Session data for room ${chatRoomId}:`, {
+      hasHandle: !!sessionHandle,
+      handlePreview: sessionHandle ? `${sessionHandle.substring(0, 16)}...` : null,
+      hasLastConnected: !!lastConnected,
+      lastConnectedTime: lastConnected?.toISOString(),
+      isResumable,
+      sessionAgeMinutes: sessionAge ? (sessionAge / (1000 * 60)).toFixed(1) : 'unknown',
+      isExpired
+    });
+    
     // Check if session is still valid
     if (!sessionHandle || !lastConnected || !isResumable) {
+      log(`Invalid session data for room ${chatRoomId}`, { 
+        sessionHandle: !!sessionHandle, 
+        lastConnected: !!lastConnected, 
+        isResumable 
+      });
       return null;
     }
 
     // Check if session has expired
-    const sessionAge = Date.now() - lastConnected.getTime();
-    if (sessionAge > maxSessionAge) {
-      log(`Session handle expired for room ${chatRoomId}`, { age: sessionAge, maxAge: maxSessionAge });
+    if (isExpired) {
+      log(`Session handle expired for room ${chatRoomId}`, { 
+        age: sessionAge, 
+        maxAge: maxSessionAge,
+        ageMinutes: sessionAge ? (sessionAge / (1000 * 60)).toFixed(1) : 'unknown'
+      });
       return null;
     }
 
-    log(`Retrieved valid session handle for room ${chatRoomId}`);
+    log(`Retrieved valid session handle for room ${chatRoomId}`, { 
+      handlePreview: `${sessionHandle.substring(0, 16)}...`,
+      ageMinutes: sessionAge ? (sessionAge / (1000 * 60)).toFixed(1) : 'unknown'
+    });
     return sessionHandle;
   }, [chatRooms, maxSessionAge, log]);
 
   const storeSessionHandle = useCallback(async (chatRoomId: string, handle: string): Promise<void> => {
     try {
-      const store = usePersistentChatStore.getState();
-      const chatRoom = store.chatRooms.find(room => room.id === chatRoomId);
+      log(`Starting to store session handle for room ${chatRoomId}`, { handlePreview: handle.substring(0, 16) + '...' });
+      
+      // Wait for store synchronization with retry logic
+      let chatRoom = null;
+      let attempts = 0;
+      const maxAttempts = 10;
+      const retryDelay = 100; // 100ms
+      
+      while (!chatRoom && attempts < maxAttempts) {
+        const store = usePersistentChatStore.getState();
+        chatRoom = store.chatRooms.find(room => room.id === chatRoomId);
+        
+        if (!chatRoom) {
+          attempts++;
+          // log(`Chat room ${chatRoomId} not found, attempt ${attempts}/${maxAttempts}. Waiting for store sync...`);
+          
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            
+            // Force refresh from storage if still not found after several attempts
+            if (attempts === 5) {
+              log(`Force syncing from storage for room ${chatRoomId}`);
+              await store.syncFromStorage();
+            }
+          }
+        }
+      }
       
       if (!chatRoom) {
-        throw new Error(`Chat room ${chatRoomId} not found`);
+        // Final attempt - try to refresh the specific chat room
+        const store = usePersistentChatStore.getState();
+        await store.refreshChatRoom(chatRoomId);
+        chatRoom = store.chatRooms.find(room => room.id === chatRoomId);
+        
+        if (!chatRoom) {
+          throw new Error(`Chat room ${chatRoomId} not found after ${maxAttempts} attempts and forced refresh`);
+        }
       }
+
+      log(`Found chat room ${chatRoomId}`, { 
+        existingSession: !!chatRoom.session,
+        existingHandle: chatRoom.session?.sessionHandle ? `${chatRoom.session.sessionHandle.substring(0, 16)}...` : null
+      });
 
       // Create updated session data
       const updatedSession: ChatRoomSession = {
@@ -138,22 +220,33 @@ export function useSessionResumption(options: UseSessionResumptionOptions = {}):
         session: updatedSession
       };
 
-      // Use the proper store action to update the chat room
-      // Since there's no direct updateChatRoom method, we need to work with the store state
+      // Update store state atomically
       const currentState = usePersistentChatStore.getState();
-      
-      // Create a new array with the updated chat room
       const updatedChatRooms = currentState.chatRooms.map(room => 
         room.id === chatRoomId ? updatedChatRoom : room
       );
 
-      // Update the store state directly (this is not ideal but works for our use case)
+      // Update the store state directly
       usePersistentChatStore.setState({ chatRooms: updatedChatRooms });
 
-      // Trigger store synchronization
-      await store.syncToStorage();
+      log(`Updated store state for room ${chatRoomId}`, { totalRooms: updatedChatRooms.length });
 
-      log(`Stored session handle for room ${chatRoomId}`, { handle: handle.substring(0, 16) + '...' });
+      // Trigger immediate store synchronization and wait for completion
+      await currentState.syncToStorage();
+
+      // Double-check that the update was applied by getting fresh state
+      const freshState = usePersistentChatStore.getState();
+      const updatedRoom = freshState.chatRooms.find(room => room.id === chatRoomId);
+      
+      if (updatedRoom?.session?.sessionHandle === handle) {
+        log(`✅ Successfully stored and verified session handle for room ${chatRoomId}`, { 
+          handle: handle.substring(0, 16) + '...',
+          timestamp: updatedRoom.session.lastConnected?.toISOString() || 'unknown',
+          verification: 'passed'
+        });
+      } else {
+        throw new Error(`Session handle verification failed for room ${chatRoomId}`);
+      }
     } catch (error) {
       console.error(`Failed to store session handle for room ${chatRoomId}:`, error);
       throw error;
@@ -183,7 +276,7 @@ export function useSessionResumption(options: UseSessionResumptionOptions = {}):
         session: clearedSession
       };
 
-      // Create updated chat rooms array
+      // Update store state atomically
       const currentState = usePersistentChatStore.getState();
       const updatedChatRooms = currentState.chatRooms.map(room => 
         room.id === chatRoomId ? updatedChatRoom : room
@@ -192,10 +285,18 @@ export function useSessionResumption(options: UseSessionResumptionOptions = {}):
       // Update the store state
       usePersistentChatStore.setState({ chatRooms: updatedChatRooms });
 
-      // Trigger store synchronization
+      // Trigger immediate store synchronization and wait for completion
       await store.syncToStorage();
 
-      log(`Cleared session handle for room ${chatRoomId}`);
+      // Verify the clear operation
+      const freshState = usePersistentChatStore.getState();
+      const clearedRoom = freshState.chatRooms.find(room => room.id === chatRoomId);
+      
+      if (!clearedRoom?.session?.sessionHandle) {
+        log(`✅ Successfully cleared session handle for room ${chatRoomId}`, { verification: 'passed' });
+      } else {
+        throw new Error(`Session handle clear verification failed for room ${chatRoomId}`);
+      }
     } catch (error) {
       console.error(`Failed to clear session handle for room ${chatRoomId}:`, error);
       throw error;

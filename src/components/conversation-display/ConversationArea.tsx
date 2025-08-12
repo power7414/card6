@@ -2,12 +2,12 @@ import React from 'react';
 import { MessageList } from './MessageList';
 import { TranscriptionDisplay } from './TranscriptionDisplay';
 import { useChatManager } from '../../hooks/use-chat-manager';
-import { useChatStore } from '../../stores/chat-store';
+import { usePersistentChatStore } from '../../stores/chat-store-persistent';
 import './conversation-display.scss';
 
 export const ConversationArea: React.FC = () => {
   const { getActiveChatRoom } = useChatManager();
-  const { currentTranscript, isRecording } = useChatStore();
+  const { currentTranscript, isRecording } = usePersistentChatStore();
   const activeChatRoom = getActiveChatRoom();
 
   return (

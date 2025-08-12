@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { useChatStore } from '../stores/chat-store';
+import { usePersistentChatStore } from '../stores/chat-store-persistent';
 import { ChatRoom } from '../types/chat';
 import { useLiveAPIContext } from '../contexts/LiveAPIContext';
 
@@ -15,7 +15,7 @@ export function useChatManager() {
     deleteChatRoom,
     renameChatRoom,
     clearError
-  } = useChatStore();
+  } = usePersistentChatStore();
   
   const { connected, disconnect, connectWithResumption } = useLiveAPIContext();
 
@@ -54,15 +54,40 @@ export function useChatManager() {
     try {
       console.log('🔄 切換聊天室:', { from: activeChatRoom, to: chatRoomId, connected });
       
-      // 如果目前有連接，先斷開
-      if (connected) {
-        console.log('📡 斷開當前連接...');
-        await disconnect();
+      // 如果是切換到同一個聊天室，跳過操作
+      if (activeChatRoom === chatRoomId) {
+        console.log('⚠️ 已經在目標聊天室中，跳過切換');
+        return;
       }
       
-      // 只切換到新聊天室，不自動連接
+      // 記錄原來的連接狀態
+      const wasConnected = connected;
+      
+      // 如果目前有連接，斷開連接（這會觸發 session 保存）
+      if (wasConnected) {
+        console.log('📡 斷開當前連接並保存 session...');
+        await disconnect();
+        // 給一點時間讓 session 更新處理完成
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      // 切換到新聊天室
       await setActiveChatRoom(chatRoomId);
-      console.log('✅ 已切換到聊天室:', chatRoomId, '(不自動連接)');
+      console.log('✅ 已切換到聊天室:', chatRoomId);
+      
+      // 只有在明確斷開連接後才自動重連
+      // 避免與手動連接競爭
+      if (wasConnected) {
+        console.log('🔌 等待用戶手動連接到新聊天室...');
+        console.log('💡 提示：請點擊連接按鈕以連接到新聊天室');
+        // 移除自動重連，讓用戶手動控制
+        // try {
+        //   await connectWithResumption(chatRoomId);
+        //   console.log('✅ 自動連接成功');
+        // } catch (error) {
+        //   console.warn('⚠️ 自動連接失敗，需手動連接:', error);
+        // }
+      }
       
     } catch (error) {
       console.error('Failed to switch chat room:', error);

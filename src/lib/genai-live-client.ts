@@ -68,7 +68,7 @@ export interface LiveClientEventTypes {
   // Emitted when output transcription is received (AI speech)
   output_transcription: (transcription: { text: string; isFinal?: boolean }) => void;
   // Emitted when server sends GoAway message indicating session will end
-  goaway: (reason: string) => void;
+  goaway: (data: { reason: string; timeLeft?: string }) => void;
   // Emitted when session timeout is approaching
   session_timeout_warning: (timeRemaining: number) => void;
   // Emitted when attempting to reconnect
@@ -88,8 +88,14 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   protected client: GoogleGenAI;
 
   private _status: "connected" | "disconnected" | "connecting" | "reconnecting" = "disconnected";
+  private _setupComplete: boolean = false;
+  
   public get status() {
     return this._status;
+  }
+  
+  public get isReady() {
+    return this._status === "connected" && this._setupComplete;
   }
 
   private _session: Session | null = null;
@@ -227,18 +233,31 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   }
 
   async connect(model: string, config: LiveConnectConfig, sessionHandle?: string | null): Promise<boolean> {
+    if (sessionHandle) {
+      console.log('🔄 嘗試恢復 session:', sessionHandle.substring(0, 16) + '...');
+    } else {
+      console.log('🆕 開始新 session');
+    }
+    
     if (this._status === "connected" || this._status === "connecting") {
+      // console.log('⚠️ 已經連接或正在連接，跳過');
       return false;
     }
 
     this._status = "connecting";
+    this._setupComplete = false;
     
-    // Add session resumption config if sessionHandle is provided
+    // Connection details already logged above
+    
+    // Add session resumption config - ALWAYS include sessionResumption to enable the feature
     const enhancedConfig = {
       ...config,
       contextWindowCompression: { slidingWindow: {} },
-      ...(sessionHandle ? { sessionResumption: { handle: sessionHandle } } : { sessionResumption: {} })
+      // Only include sessionResumption if we have a valid session handle
+      ...(sessionHandle ? { sessionResumption: { handle: sessionHandle } } : {})
     };
+    
+    console.log('📋 Session resumption 配置:', enhancedConfig.sessionResumption);
     
     this.config = enhancedConfig;
     this._model = model;
@@ -261,15 +280,44 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         config: enhancedConfig,
         callbacks,
       });
+      
+      // Wait for setup completion before marking as connected
+      // This prevents premature audio data sending
+      return await new Promise<boolean>((resolve, reject) => {
+        let setupCompleted = false;
+        
+        const timeout = setTimeout(() => {
+          if (!setupCompleted) {
+            console.error('❌ Setup timeout after 10 seconds - connection failed');
+            this._status = "disconnected";
+            this._setupComplete = false;
+            this.off("setupcomplete", onSetupComplete);
+            reject(new Error('Setup timeout: Live API did not complete setup within 10 seconds'));
+          }
+        }, 10000); // Increased to 10 second timeout for better reliability
+        
+        // Wait for setupcomplete event
+        const onSetupComplete = () => {
+          if (!setupCompleted) {
+            setupCompleted = true;
+            clearTimeout(timeout);
+            this._status = "connected";
+            this._setupComplete = true;
+            this.setupSessionTimeout();
+            this.off("setupcomplete", onSetupComplete);
+            console.log('✅ Setup 完成，連接建立成功');
+            resolve(true);
+          }
+        };
+        
+        this.once("setupcomplete", onSetupComplete);
+      });
     } catch (e) {
       console.error("Error connecting to GenAI Live:", e);
       this._status = "disconnected";
+      this._setupComplete = false;
       return false;
     }
-
-    this._status = "connected";
-    this.setupSessionTimeout();
-    return true;
   }
 
   public disconnect() {
@@ -281,6 +329,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     this.session?.close();
     this._session = null;
     this._status = "disconnected";
+    this._setupComplete = false;
     this.sessionStartTime = null;
 
     this.log("client.close", `Disconnected`);
@@ -306,8 +355,11 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   }
 
   protected async onmessage(message: LiveServerMessage) {
+    // console.log('📨 收到伺服器訊息:', Object.keys(message));
+    
     if (message.setupComplete) {
       this.log("server.send", "setupComplete");
+      console.log('✅ Setup 完成，連接建立成功');
       this.emit("setupcomplete");
       return;
     }
@@ -326,12 +378,20 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     
     // Handle GoAway message (server indicating session will end)
     if ('goAway' in message && message.goAway) {
-      const reason = (message.goAway as any).reason || "Server initiated session termination";
-      this.log("server.goaway", reason);
-      this.emit("goaway", reason);
+      const goAwayData = message.goAway as any;
+      const reason = goAwayData.reason || "Server initiated session termination";
+      const timeLeft = goAwayData.timeLeft;
+      
+      this.log("server.goaway", `reason: ${reason}, timeLeft: ${timeLeft}`);
+      this.emit("goaway", { reason, timeLeft });
       this.clearSessionTimeouts();
+      
       // Auto-reconnect if enabled
-      if (this.autoReconnect) {
+      if (this.autoReconnect && timeLeft) {
+        // Wait for the remaining time before attempting reconnect
+        const waitTime = Math.max(1000, parseInt(timeLeft) * 1000 - 500); // Convert to ms and leave 500ms buffer
+        setTimeout(() => this.attemptReconnect(), waitTime);
+      } else if (this.autoReconnect) {
         setTimeout(() => this.attemptReconnect(), 1000);
       }
       return;
@@ -427,18 +487,35 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
    * send realtimeInput, this is base64 chunks of "audio/pcm" and/or "image/jpg"
    */
   sendRealtimeInput(chunks: Array<{ mimeType: string; data: string }>) {
+    // Check if session is ready to receive data
+    if (!this.isReady || !this.session) {
+      console.warn('⚠️ Session not ready, skipping realtime input');
+      return;
+    }
+    
     let hasAudio = false;
     let hasVideo = false;
     for (const ch of chunks) {
-      this.session?.sendRealtimeInput({ media: ch });
-      if (ch.mimeType.includes("audio")) {
-        hasAudio = true;
-      }
-      if (ch.mimeType.includes("image")) {
-        hasVideo = true;
-      }
-      if (hasAudio && hasVideo) {
-        break;
+      try {
+        this.session.sendRealtimeInput({ media: ch });
+        if (ch.mimeType.includes("audio")) {
+          hasAudio = true;
+        }
+        if (ch.mimeType.includes("image")) {
+          hasVideo = true;
+        }
+        if (hasAudio && hasVideo) {
+          break;
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('WebSocket') || errorMessage.includes('CLOSED')) {
+          console.warn('⚠️ WebSocket closed, stopping realtime input');
+          return;
+        } else {
+          console.error('❌ Error sending realtime input:', error);
+          throw error;
+        }
       }
     }
     const message =

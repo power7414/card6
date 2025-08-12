@@ -25,17 +25,20 @@ interface ChatState {
   isInitialized: boolean;
   lastSyncedAt: Date | null;
   syncError: string | null;
+  error: string | null; // Add error field for compatibility
   
   // Actions
   initialize: () => Promise<void>;
   addChatRoom: (chatRoom: ChatRoom) => Promise<void>;
   setActiveChatRoom: (chatRoomId: string) => Promise<void>;
   addMessage: (chatRoomId: string, message: Message) => Promise<void>;
+  updateMessage: (chatRoomId: string, messageId: string, updater: (message: Message) => Message) => Promise<void>; // Add updateMessage method
   updateTranscript: (transcript: string) => void;
   setRecording: (recording: boolean) => void;
   deleteChatRoom: (chatRoomId: string) => Promise<void>;
   renameChatRoom: (chatRoomId: string, newName: string) => Promise<void>;
   clearTranscript: () => void;
+  clearError: () => void; // Add clearError method
   
   // Sync actions
   syncFromStorage: () => Promise<void>;
@@ -55,6 +58,7 @@ export const usePersistentChatStore = create<ChatState>()(
     isInitialized: false,
     lastSyncedAt: null,
     syncError: null,
+    error: null,
 
     /**
      * Initialize the store by loading data from IndexedDB
@@ -216,6 +220,51 @@ export const usePersistentChatStore = create<ChatState>()(
     },
 
     /**
+     * Update a message in a chat room and persist the change
+     */
+    updateMessage: async (chatRoomId, messageId, updater) => {
+      try {
+        // Update memory state first
+        set((state) => {
+          const updatedChatRooms = state.chatRooms.map(room => 
+            room.id === chatRoomId 
+              ? { 
+                  ...room, 
+                  messages: room.messages.map(msg => 
+                    msg.id === messageId ? updater(msg) : msg
+                  ),
+                  lastMessageAt: new Date()
+                }
+              : room
+          );
+          return { chatRooms: updatedChatRooms, syncError: null };
+        });
+
+        // Get the updated message for persistence
+        const { chatRooms } = get();
+        const updatedRoom = chatRooms.find(room => room.id === chatRoomId);
+        const updatedMessage = updatedRoom?.messages.find(msg => msg.id === messageId);
+
+        if (updatedMessage) {
+          // Persist message update to storage
+          await messageStorage.updateMessage(chatRoomId, updatedMessage);
+          
+          // Update chat room metadata
+          await chatRoomStorage.updateChatRoom(chatRoomId, {
+            lastMessageAt: updatedRoom!.lastMessageAt
+          });
+        }
+
+        set({ lastSyncedAt: new Date() });
+        console.log(`Updated and persisted message ${messageId} in room ${chatRoomId}`);
+      } catch (error) {
+        console.error('Failed to persist message update:', error);
+        set({ syncError: error instanceof Error ? error.message : 'Failed to update message' });
+        throw error;
+      }
+    },
+
+    /**
      * Update current transcript (not persisted immediately for performance)
      */
     updateTranscript: (transcript) => {
@@ -328,6 +377,13 @@ export const usePersistentChatStore = create<ChatState>()(
       settingsStorage.setSetting('currentTranscript', '').catch(error => {
         console.error('Failed to clear transcript from storage:', error);
       });
+    },
+
+    /**
+     * Clear error state
+     */
+    clearError: () => {
+      set({ error: null, syncError: null });
     },
 
     /**

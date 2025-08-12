@@ -1,10 +1,9 @@
 import React, { memo, useRef, useEffect } from 'react';
 import { Header } from './components/layout/Header';
-import { ThreeColumnLayout } from './components/layout/ThreeColumnLayout';
+import { TwoColumnLayout } from './components/layout/TwoColumnLayout';
 import { ChatSidebar } from './components/chat-room-sidebar/ChatSidebar';
 import { ConversationArea } from './components/conversation-display/ConversationArea';
 import { ChatInputArea } from './components/chat-input/ChatInputArea';
-import { ConsoleSidebar } from './components/console-sidebar/ConsoleSidebar';
 import { LiveAPIProvider } from './contexts/LiveAPIContext';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { useChatManager } from './hooks/use-chat-manager';
@@ -13,21 +12,35 @@ import { useTranscriptionIntegration } from './hooks/use-transcription-integrati
 import { initializeStorage } from './lib/indexeddb';
 import './App.scss';
 
+// Import debugging utilities (available in development)
+if (process.env.NODE_ENV === 'development') {
+  import('./utils/session-debug');
+  import('./utils/session-diagnostics');
+  import('./utils/session-resumption-fix');
+}
+
 // Live API 配置
 const LIVE_API_OPTIONS = {
   apiKey: process.env.REACT_APP_GEMINI_API_KEY || '',
 };
 
+// 除錯：檢查 API 金鑰
+console.log('🔑 Live API Options:', {
+  hasApiKey: !!LIVE_API_OPTIONS.apiKey,
+  apiKeyLength: LIVE_API_OPTIONS.apiKey.length,
+  apiKeyPrefix: LIVE_API_OPTIONS.apiKey.substring(0, 10) + '...'
+});
+
 // Memoized components to prevent unnecessary re-renders
 const MemoizedChatSidebar = memo(ChatSidebar);
-const MemoizedConsoleSidebar = memo(ConsoleSidebar);
 const MemoizedConversationArea = memo(ConversationArea);
 const MemoizedChatInputArea = memo(ChatInputArea);
 
 function AppContent() {
+  // console.log('🏗️ [AppContent] 渲染，檢查除錯是否正常');
   const { chatRooms, createNewChatRoom, error, clearError } = useChatManager();
   
-  console.log('🏗️ AppContent 渲染，準備初始化事件處理器');
+  // console.log('🏗️ AppContent 渲染，準備初始化事件處理器');
   
   // 重新啟用事件處理器
   const { resetAIResponseState } = useConversationEvents();
@@ -43,7 +56,7 @@ function AppContent() {
   // 初始化轉錄整合
   useTranscriptionIntegration();
   
-  console.log('✅ AppContent 事件處理器初始化完成');
+  // console.log('✅ AppContent 事件處理器初始化完成');
 
   // 移除自動創建聊天室功能 - 讓用戶自行決定何時創建
   // React.useEffect(() => {
@@ -80,9 +93,8 @@ function AppContent() {
       </ErrorBoundary>
       
       <ErrorBoundary>
-        <ThreeColumnLayout
+        <TwoColumnLayout
           leftPanel={<MemoizedChatSidebar />}
-          rightPanel={<MemoizedConsoleSidebar />}
         >
           <div className="main-content">
             <ErrorBoundary>
@@ -92,11 +104,13 @@ function AppContent() {
               <MemoizedChatInputArea />
             </ErrorBoundary>
           </div>
-        </ThreeColumnLayout>
+        </TwoColumnLayout>
       </ErrorBoundary>
     </div>
   );
 }
+
+const MemoizedAppContent = memo(AppContent);
 
 function App() {
   const [storageInitialized, setStorageInitialized] = React.useState(false);
@@ -147,7 +161,7 @@ function App() {
 
   return (
     <LiveAPIProvider options={LIVE_API_OPTIONS}>
-      <AppContent />
+      <MemoizedAppContent />
     </LiveAPIProvider>
   );
 }

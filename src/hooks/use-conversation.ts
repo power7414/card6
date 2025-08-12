@@ -1,12 +1,12 @@
 import { useCallback, useMemo } from 'react';
 import { useLiveAPIContext } from '../contexts/LiveAPIContext';
-import { useChatStore } from '../stores/chat-store';
+import { usePersistentChatStore } from '../stores/chat-store-persistent';
 import { useChatManager } from './use-chat-manager';
 import { useUIStore } from '../stores/ui-store';
 
 export function useConversation() {
-  const { client, connected, connect, connectWithResumption } = useLiveAPIContext();
-  const { addMessage } = useChatStore();
+  const { client, connected } = useLiveAPIContext();
+  const { addMessage } = usePersistentChatStore();
   const { activeChatRoom, getActiveChatRoom } = useChatManager();
   const { setShowWaveAnimation } = useUIStore();
 
@@ -35,9 +35,10 @@ export function useConversation() {
     addMessage(activeRoom.id, userMessage);
 
     try {
-      // 確保 API 連接 (使用 session resumption)
+      // 檢查 API 連接狀態
       if (!connected) {
-        await connectWithResumption(activeRoom.id);
+        // 不要自動連接，而是提醒用戶需要先連接
+        throw new Error('請先點擊連接按鈕建立與 AI 的連接');
       }
 
       // 發送訊息給 AI
@@ -53,7 +54,7 @@ export function useConversation() {
       const errorMessage = createErrorMessage(error);
       addMessage(activeRoom.id, errorMessage);
     }
-  }, [getActiveChatRoom, addMessage, client, connected, connectWithResumption, setShowWaveAnimation, createUserMessage, createErrorMessage]);
+  }, [getActiveChatRoom, addMessage, client, connected, setShowWaveAnimation, createUserMessage, createErrorMessage]);
 
   // 發送語音數據到 AI (實時音頻輸入)
   const sendAudioData = useCallback(async (audioData: string) => {

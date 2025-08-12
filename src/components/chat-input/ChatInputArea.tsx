@@ -9,12 +9,21 @@ import { useTranscription } from '../../hooks/use-transcription';
 import './chat-input.scss';
 
 export const ChatInputArea: React.FC = () => {
+  // console.log('🎨 [ChatInputArea] 組件渲染');
   const [inputText, setInputText] = React.useState('');
   const [videoStream, setVideoStream] = React.useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { activeChatRoom } = useChatManager();
   const { sendTextMessage, sendRealtimeInput, connected } = useConversation();
   const { inputTranscription, isRecording } = useTranscription();
+  
+  // 追蹤組件掛載/卸載
+  // React.useEffect(() => {
+  //   console.log('🔵 [ChatInputArea] 組件掛載');
+  //   return () => {
+  //     console.log('🔴 [ChatInputArea] 組件卸載');
+  //   };
+  // }, []);
 
   // 當轉錄文字更新時，自動填入到輸入框
   useEffect(() => {
@@ -62,6 +71,7 @@ export const ChatInputArea: React.FC = () => {
       
       {/* New ControlTray component from live-api-web-console */}
       <ControlTray 
+        key="control-tray"
         videoRef={videoRef}
         supportsVideo={true}
         onVideoStreamChange={setVideoStream}
@@ -84,9 +94,11 @@ export const ChatInputArea: React.FC = () => {
           onChange={setInputText}
           onKeyPress={handleKeyPress}
           placeholder={
-            inputTranscription.currentTranscript 
-              ? "編輯轉錄文字或直接發送..." 
-              : "在這裡輸入訊息或點擊麥克風開始語音輸入..."
+            !connected
+              ? "請先點擊連接按鈕連接 AI..." 
+              : inputTranscription.currentTranscript 
+                ? "編輯轉錄文字或直接發送..." 
+                : "在這裡輸入訊息或點擊麥克風開始語音輸入..."
           }
           disabled={!activeChatRoom}
         />

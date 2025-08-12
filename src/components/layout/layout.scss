@@ -41,6 +41,115 @@
   }
 }
 
+// Two Column Layout
+.two-column-layout {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: $font-mono;
+  overflow: hidden;
+  position: relative;
+
+  .conversation-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0; // 防止 flex 子元素溢出
+    height: 100%;
+    position: relative;
+  }
+
+  // 側邊欄收合按鈕
+  .sidebar-toggle-btn {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 200;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0 8px 8px 0;
+    width: 32px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: var(--text-secondary);
+    
+    &:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      transform: translateY(-50%) translateX(2px);
+    }
+
+    &:active {
+      transform: translateY(-50%) translateX(0px);
+    }
+
+    &.open {
+      left: 300px; // 與側邊欄寬度一致
+    }
+
+    &.closed {
+      left: 0px;
+      border-left: none;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .icon {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.2s ease;
+    }
+  }
+
+  // 隱藏 CollapsiblePanel 內建的切換按鈕
+  .hide-internal-toggle .panel-toggle {
+    display: none;
+  }
+
+  // 響應式設計
+  @media (max-width: $breakpoint-tablet) {
+    .chat-sidebar-panel {
+      position: absolute;
+      height: 100%;
+      z-index: 100;
+
+      &.open {
+        box-shadow: var(--shadow);
+      }
+
+      left: 0;
+    }
+
+    .sidebar-toggle-btn {
+      top: 80px; // 避開 header
+      height: 48px;
+      width: 28px;
+      
+      &.open {
+        left: 280px; // 稍微調整位置
+      }
+    }
+  }
+
+  @media (max-width: $breakpoint-mobile) {
+    .sidebar-toggle-btn {
+      &.open {
+        left: 260px; // 手機版再調整
+      }
+      
+      .icon {
+        width: 14px;
+        height: 14px;
+      }
+    }
+  }
+}
+
 // Header styles
 .app-header {
   display: grid;
@@ -65,6 +174,8 @@
   .header-center {
     display: flex;
     justify-content: center;
+    align-items: center;
+    gap: $spacing-md;
   }
 
   .menu-button {
@@ -169,6 +280,48 @@
         display: none;
       }
       padding: $spacing-xs;
+    }
+  }
+
+  .session-timer {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    padding: $spacing-xs $spacing-sm;
+    background: rgba(255, 152, 0, 0.1);
+    border: 1px solid rgba(255, 152, 0, 0.3);
+    border-radius: $radius-sm;
+    font-size: 12px;
+    color: #ff9800;
+    animation: pulse 2s infinite;
+
+    .timer-label {
+      font-weight: 500;
+      opacity: 0.9;
+    }
+
+    .timer-value {
+      font-weight: 600;
+      font-family: $font-mono;
+      letter-spacing: 0.5px;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 0.8;
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0.8;
+      }
+    }
+
+    @media (max-width: $breakpoint-mobile) {
+      .timer-label {
+        display: none;
+      }
     }
   }
 }
