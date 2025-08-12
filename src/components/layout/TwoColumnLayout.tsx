@@ -35,7 +35,7 @@ export const TwoColumnLayout: React.FC<TwoColumnLayoutProps> = ({
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [setMobile, toggleLeftPanel]);
+  }, [setMobile, toggleLeftPanel, leftPanelOpen]);
 
   // Load panel state from IndexedDB on component initialization ONLY
   useEffect(() => {

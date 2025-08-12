@@ -25,6 +25,7 @@ export function useChatManager() {
     if (!isLoading && chatRooms.length === 0 && !error) {
       initialize();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array is intentional - we only want to initialize once
 
   // Memoize next room number to prevent stale closures
