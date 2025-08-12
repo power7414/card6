@@ -86,9 +86,9 @@ out
 .nuxt
 dist
 
-# Gatsby files
+# Gatsby files (not used in this React project)
 .cache/
-public
+# public - removed for React app (we need public/index.html)
 
 # Vuepress build output
 .vuepress/dist
