@@ -1,5 +1,4 @@
 import React from 'react';
-import { FiUser, FiCpu } from 'react-icons/fi';
 import { Message } from '../../types/chat';
 
 interface MessageBubbleProps {
@@ -20,7 +19,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
   return (
     <div className={`message-bubble ${isUser ? 'user' : 'assistant'} ${isLast ? 'last' : ''}`}>
       <div className="message-avatar">
-        {isUser ? <FiUser /> : <FiCpu />}
+        {isUser ? (
+          <img src="/images/avatars/user-avatar.png" alt="User Avatar" />
+        ) : (
+          <img src="/images/avatars/ai-avatar.png" alt="AI Avatar" />
+        )}
       </div>
       
       <div className="message-content">

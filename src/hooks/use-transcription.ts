@@ -173,45 +173,61 @@ export function useTranscription(options: UseTranscriptionOptions = {}): UseTran
       return;
     }
 
+    // 追蹤累積的用戶語音內容
+    let accumulatedUserTranscript = '';
+
     // 處理用戶語音輸入轉錄事件
     const onInputTranscription = (data: { text: string; isFinal?: boolean }) => {
-      const transcriptionText = data.text?.trim();
-      if (transcriptionText) {
-        // 1. 更新轉錄狀態
-        setInputTranscriptionDirect(transcriptionText, data.isFinal ?? false);
+      const transcriptionFragment = data.text?.trim();
+      if (transcriptionFragment) {
+        // 1. 累積新的轉錄片段（與 AI 輸出邏輯一致）
+        if (!currentUserMessageRef.current) {
+          // 開始新訊息，從頭開始累積
+          accumulatedUserTranscript = transcriptionFragment;
+        } else {
+          // 累積新片段到現有內容
+          accumulatedUserTranscript += transcriptionFragment;
+        }
         
-        // 2. 只有在有活動聊天室時才顯示在對話框中
+        const fullTranscript = accumulatedUserTranscript;
+        
+        // 2. 更新轉錄狀態（使用累積的完整內容）
+        setInputTranscriptionDirect(fullTranscript, data.isFinal ?? false);
+        
+        // 3. 只有在有活動聊天室時才顯示在對話框中
         if (!activeChatRoom) {
           return;
         }
         
-        // 3. 將轉錄顯示在對話框中
+        // 4. 將累積的轉錄顯示在對話框中
         if (!currentUserMessageRef.current) {
-          // 創建新的用戶語音訊息
-          const userMessage = createUserMessage(transcriptionText, { isTyping: !data.isFinal });
+          // 創建新的用戶語音訊息，使用累積的內容
+          const userMessage = createUserMessage(fullTranscript, { isTyping: !data.isFinal });
           currentUserMessageRef.current = userMessage.id;
           addMessage(activeChatRoom, userMessage);
         } else {
-          // 更新現有的用戶語音訊息
+          // 更新現有的用戶語音訊息，使用累積的完整內容
           updateMessage?.(activeChatRoom, currentUserMessageRef.current, (msg) => {
             return { 
               ...msg, 
-              content: transcriptionText, 
+              content: fullTranscript,  // 使用累積的完整轉錄
               isTyping: !data.isFinal 
             };
           });
         }
         
-        // 當轉錄完成時，重置當前訊息 ID
+        // 當轉錄完成時，重置當前訊息 ID 和累積器
         if (data.isFinal) {
           currentUserMessageRef.current = null;
+          accumulatedUserTranscript = '';
         }
       }
     };
 
-    // 處理 turnComplete 事件 - 重置用戶訊息追蹤
+    // 處理 turnComplete 事件 - 重置用戶訊息追蹤和累積器
     const onTurnComplete = () => {
       currentUserMessageRef.current = null;
+      accumulatedUserTranscript = '';
     };
 
     // 註冊事件監聽器

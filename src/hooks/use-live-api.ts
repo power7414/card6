@@ -63,7 +63,8 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
   const connectingChatRoomIdRef = useRef<string | null>(null);
   const [sessionTimeLeft, setSessionTimeLeft] = useState<number | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
+  
+  // Speech config 可以加聲音選項
   const [model, setModel] = useState<string>("models/gemini-live-2.5-flash-preview");
   const [config, setConfig] = useState<LiveConnectConfig>({
     responseModalities: [Modality.AUDIO],
