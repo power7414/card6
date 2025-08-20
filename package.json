@@ -2,7 +2,7 @@
   "name": "conversation-testing-platform",
   "version": "0.1.0",
   "dependencies": {
-    "@google/genai": "^0.14.0",
+    "@google/genai": "^1.15.0",
     "classnames": "^2.5.1",
     "eventemitter3": "^5.0.1",
     "lodash": "^4.17.21",

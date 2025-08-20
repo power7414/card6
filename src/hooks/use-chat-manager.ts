@@ -12,6 +12,7 @@ export function useChatManager() {
     initialize,
     addChatRoom,
     setActiveChatRoom,
+    addMessage,
     deleteChatRoom,
     renameChatRoom,
     clearError
@@ -175,6 +176,7 @@ export function useChatManager() {
     error,
     createNewChatRoom,
     switchChatRoom,
+    addMessage,
     deleteChatRoomWithConfirm,
     renameChatRoomWithPrompt,
     clearError

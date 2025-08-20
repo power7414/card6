@@ -1,0 +1,305 @@
+/**
+ * ConversationModeSelector 下拉式選單樣式
+ */
+
+@import '../../styles/variables.scss';
+
+.conversation-mode-selector {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  
+  // 當在控制台中使用時的特殊樣式
+  .control-tray & {
+    max-width: 250px;
+    min-width: 200px;
+  }
+  
+  &.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  // 觸發器（顯示當前選擇的模式）- 參考設計樣式
+  .mode-selector-trigger {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 120px;
+    
+    &:hover:not(.disabled) {
+      background: #f9f9f9;
+      border-color: #d1d5db;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    &:focus {
+      outline: none;
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+    }
+    
+    &.disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .selected-mode {
+      display: flex;
+      align-items: center;
+      flex: 1;
+
+      .mode-info {
+        display: flex;
+        align-items: center;
+        flex: 1;
+
+        .mode-avatar {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          margin-right: 8px;
+          flex-shrink: 0;
+        }
+
+        .mode-label {
+          font-weight: 500;
+          color: #333;
+          font-size: 13px;
+          margin-right: 6px;
+        }
+      }
+    }
+
+    .dropdown-arrow {
+      width: 14px;
+      height: 14px;
+      color: #666;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      // 移除 transition 和旋轉效果
+    }
+  }
+
+  // 下拉選單
+  .mode-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    z-index: 1000;
+    overflow: hidden;
+    animation: dropdownSlideIn 0.2s ease-out;
+
+    .mode-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-bottom: 1px solid #f3f4f6;
+      position: relative;
+      
+      &:last-child {
+        border-bottom: none;
+      }
+      
+      &:hover:not(.disabled) {
+        background: #f9f9f9;
+      }
+      
+      &.active {
+        background: #7c3aed;
+        color: white;
+        
+        .option-info {
+          .option-label {
+            color: white;
+          }
+        }
+        
+        .check-icon {
+          color: white;
+        }
+      }
+      
+      &.disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      .option-info {
+        display: flex;
+        align-items: center;
+        flex: 1;
+
+        .mode-avatar {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          margin-right: 8px;
+          flex-shrink: 0;
+        }
+
+        .option-label {
+          font-weight: 500;
+          color: #333;
+          font-size: 13px;
+        }
+      }
+
+      .check-icon {
+        font-size: 18px;
+        color: var(--accent-color);
+      }
+    }
+  }
+
+  // 圖標樣式 - 簡化設計
+  .mode-icon,
+  .mode-icon-large {
+    flex-shrink: 0;
+    object-fit: contain;
+    border-radius: 50%;
+    
+    &.material-symbols-outlined {
+      // Material icon 作為後備
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #f3f4f6;
+      border-radius: 50%;
+      color: #666;
+    }
+  }
+
+  .mode-icon {
+    width: 20px;
+    height: 20px;
+    
+    &.material-symbols-outlined {
+      font-size: 14px;
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .mode-icon-large {
+    width: 20px;
+    height: 20px;
+    
+    &.material-symbols-outlined {
+      font-size: 14px;
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  // 開啟狀態的特殊樣式
+  &.open {
+    .mode-selector-trigger {
+      background: #f9f9f9;
+      border-color: #d1d5db;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      
+      // 移除開啟狀態時的箭頭旋轉效果
+      // .dropdown-arrow {
+      //   transform: rotate(180deg);
+      // }
+    }
+  }
+}
+
+// 下拉動畫
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 響應式設計
+@media (max-width: 768px) {
+  .conversation-mode-selector {
+    max-width: 100%;
+    min-width: 100px;
+    
+    .mode-selector-trigger {
+      padding: 6px 10px;
+      min-width: 100px;
+
+      .selected-mode {
+        .mode-info {
+          .mode-avatar {
+            width: 18px;
+            height: 18px;
+            margin-right: 6px;
+          }
+
+          .mode-label {
+            font-size: 12px;
+            margin-right: 4px;
+          }
+        }
+      }
+
+      .dropdown-arrow {
+        width: 12px;
+        height: 12px;
+      }
+    }
+
+    .mode-dropdown {
+      .mode-option {
+        padding: 6px 10px;
+        gap: 6px;
+
+        .option-info {
+          .mode-avatar {
+            width: 18px;
+            height: 18px;
+            margin-right: 6px;
+          }
+
+          .option-label {
+            font-size: 12px;
+          }
+        }
+
+        .check-icon {
+          font-size: 14px;
+        }
+      }
+    }
+
+    .mode-icon,
+    .mode-icon-large {
+      width: 18px;
+      height: 18px;
+      
+      &.material-symbols-outlined {
+        font-size: 12px;
+        width: 18px;
+        height: 18px;
+      }
+    }
+  }
+}
+

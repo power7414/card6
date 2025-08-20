@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface TextInputProps {
   value: string;
@@ -12,29 +12,46 @@ export const TextInput: React.FC<TextInputProps> = ({
   value,
   onChange,
   onKeyPress,
-  placeholder = "在這裡輸入訊息...",
+  placeholder = "問我任何問題...",
   disabled = false
 }) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange(e.target.value);
+    
+    // Auto-resize functionality
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
   };
 
+  // Auto-resize when value changes externally
+  useEffect(() => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current;
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+    }
+  }, [value]);
+
   return (
-    <div className="text-input-container">
-      <textarea
-        className="text-input"
-        value={value}
-        onChange={handleChange}
-        onKeyPress={onKeyPress}
-        placeholder={placeholder}
-        disabled={disabled}
-        rows={1}
-        style={{
-          minHeight: '40px',
-          maxHeight: '120px',
-          resize: 'none'
-        }}
-      />
-    </div>
+    <textarea
+      ref={textareaRef}
+      className="text-input"
+      value={value}
+      onChange={handleChange}
+      onKeyDown={onKeyPress}
+      placeholder={placeholder}
+      disabled={disabled}
+      rows={1}
+      spellCheck="true"
+      style={{
+        minHeight: '24px',
+        maxHeight: '200px',
+        resize: 'none',
+        overflow: 'hidden'
+      }}
+    />
   );
 };

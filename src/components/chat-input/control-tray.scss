@@ -112,12 +112,36 @@
 }
 
 .control-tray {
-  display: inline-flex;
+  display: flex;
+  flex-direction: row;
   justify-content: center;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 16px;
   margin-bottom: 12px;
   width: 100%;
+  
+  // Mode selector container
+  .mode-selector-container {
+    flex-shrink: 0;
+    
+    .conversation-mode-selector {
+      max-width: 250px;
+      min-width: 200px;
+    }
+  }
+  
+  // Actions navigation (buttons)
+  .actions-nav {
+    display: inline-flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  // Connection container
+  .connection-container {
+    flex-shrink: 0;
+  }
 
   .disabled .action-button,
   .action-button.disabled {
@@ -208,5 +232,87 @@
 
   &.filled {
     font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+}
+
+/* TTS 模式專用樣式 */
+.control-tray.tts-mode {
+  .action-button.placeholder {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+    
+    &:hover {
+      transform: none;
+      background: #f5f5f5;
+      border: 1px solid transparent;
+    }
+  }
+  
+  .connection-container {
+    .text-indicator {
+      font-size: 12px;
+      
+      &::first-letter {
+        text-transform: uppercase;
+      }
+    }
+  }
+  
+  // TTS 模式下的特殊狀態
+  &.listening {
+    .mic-button {
+      background: #4CAF50;
+      color: white;
+      animation: pulse 2s infinite;
+    }
+  }
+}
+
+/* 響應式設計 - 手機版 */
+@media (max-width: 768px) {
+  .control-tray {
+    flex-direction: column;
+    gap: 12px;
+    
+    .mode-selector-container {
+      width: 100%;
+      
+      .conversation-mode-selector {
+        max-width: 100%;
+        min-width: auto;
+      }
+    }
+    
+    .actions-nav {
+      justify-content: center;
+    }
+    
+    .connection-container {
+      align-self: center;
+    }
+  }
+}
+
+/* 響應式設計 - 平板版 */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .control-tray {
+    .mode-selector-container {
+      .conversation-mode-selector {
+        max-width: 220px;
+        min-width: 180px;
+      }
+    }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
   }
 }

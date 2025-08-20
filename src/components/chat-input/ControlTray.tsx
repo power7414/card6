@@ -19,6 +19,8 @@ export type ControlTrayProps = {
   children?: ReactNode;
   supportsVideo?: boolean;
   onVideoStreamChange?: (stream: MediaStream | null) => void;
+  showModeSelector?: boolean;
+  modeSelector?: ReactNode;
 };
 
 type MediaStreamButtonProps = {
@@ -50,6 +52,8 @@ function ControlTray({
   children,
   onVideoStreamChange = () => {},
   supportsVideo = true,
+  showModeSelector = false,
+  modeSelector,
 }: ControlTrayProps) {
   // console.log('🎨 [ControlTray] 組件渲染');
   const webcam = useWebcam();
@@ -245,6 +249,14 @@ function ControlTray({
   return (
     <section className="control-tray">
       <canvas style={{ display: "none" }} ref={renderCanvasRef} />
+      
+      {/* Mode Selector - placed before action buttons */}
+      {showModeSelector && modeSelector && (
+        <div className="mode-selector-container">
+          {modeSelector}
+        </div>
+      )}
+      
       <nav className={cn("actions-nav", { disabled: !connected })}>
         <button
           className={cn("action-button mic-button", { active: !muted })}
