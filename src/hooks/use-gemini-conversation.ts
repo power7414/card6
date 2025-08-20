@@ -82,10 +82,18 @@ export function useGeminiConversation(
       }
       
       // Initialize STT Service
-      sttServiceRef.current = new GeminiSTTService({
-        language: currentConfig.sttLanguage || 'zh-TW',
-        enableLogging: currentConfig.enableLogging
-      });
+      if (currentConfig.apiKey) {
+        sttServiceRef.current = new GeminiSTTService({
+          apiKey: currentConfig.apiKey,
+          audioFormat: 'audio/wav',
+          segmentDuration: 3, // 3-second segments for near real-time
+          sampleRate: 16000,
+          enableLogging: currentConfig.enableLogging,
+          transcriptionPrompt: currentConfig.sttLanguage === 'en-US' ?
+            'Please transcribe this English audio to text.' :
+            'Please transcribe this Chinese audio to text.'
+        });
+      }
       
       // Initialize TTS Service
       if (currentConfig.apiKey) {
@@ -118,12 +126,20 @@ export function useGeminiConversation(
   // STT Event handlers
   const sttEvents: STTEvents = {
     onResult: (result: STTResult) => {
-      setCurrentTranscript(result.transcript);
+      // For segmented results, accumulate transcripts
+      if (result.segmentIndex === 0) {
+        setCurrentTranscript(result.transcript);
+      } else {
+        setCurrentTranscript(prev => `${prev} ${result.transcript}`);
+      }
       setIsTranscriptFinal(result.isFinal);
       
-      // Auto-send when final transcript is received
+      // Auto-send when final transcript is received from any segment
       if (result.isFinal && result.transcript.trim()) {
-        sendTextMessage(result.transcript);
+        const fullTranscript = result.segmentIndex === 0 ? 
+          result.transcript : 
+          `${currentTranscript} ${result.transcript}`;
+        sendTextMessage(fullTranscript.trim());
       }
     },
     onStart: () => {
@@ -139,26 +155,28 @@ export function useGeminiConversation(
       setError(errorMessage);
       setIsListening(false);
     },
-    onSpeechStart: () => {
-      // Can be used for UI feedback
+    onSegmentStart: (segmentIndex: number) => {
+      // Visual feedback for segment processing
+      console.log(`[STT] Processing segment ${segmentIndex}`);
     },
-    onSpeechEnd: () => {
-      // Can be used for UI feedback
+    onSegmentEnd: (segmentIndex: number) => {
+      // Visual feedback for segment completion
+      console.log(`[STT] Completed segment ${segmentIndex}`);
     }
   };
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     if (!sttServiceRef.current) {
       setError('Speech recognition service not available');
       return;
     }
 
     try {
-      sttServiceRef.current.startRecognition(sttEvents);
+      await sttServiceRef.current.startRecognition(sttEvents);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start speech recognition');
     }
-  }, []);
+  }, [sttEvents]);
 
   const stopListening = useCallback(() => {
     if (sttServiceRef.current) {
@@ -189,7 +207,21 @@ export function useGeminiConversation(
 
       // Auto-speak the response if TTS is available
       if (ttsServiceRef.current) {
-        await speakMessage(response);
+        try {
+          await ttsServiceRef.current.speakText({
+            text: response,
+            voice: {
+              voiceName: 'Kore',
+              stylePrompt: currentConfig.ttsLanguage === 'en-US' ? 
+                'Speak naturally in American English' : 
+                'Speak naturally in Traditional Chinese'
+            }
+          });
+          setIsSpeaking(true);
+          // Note: TTS will set isSpeaking to false when complete
+        } catch (ttsErr) {
+          console.error('TTS error:', ttsErr);
+        }
       }
 
     } catch (err) {
@@ -230,7 +262,7 @@ export function useGeminiConversation(
     } finally {
       setIsSpeaking(false);
     }
-  }, [currentConfig.ttsLanguage]);
+  }, [currentConfig]);
 
   // Check service availability
   const isSTTSupported = GeminiSTTService.isSupported();

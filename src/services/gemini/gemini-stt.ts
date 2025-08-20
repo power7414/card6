@@ -1,34 +1,45 @@
 /**
- * Speech-to-Text Service for React Frontend
- * Browser-compatible STT implementation using Web Speech API
- * Adapted from GTTS project concepts for frontend use
+ * Gemini Speech-to-Text Service for React Frontend
+ * Uses official Gemini Audio API for high-quality speech recognition
+ * Supports segmented recording for near real-time transcription
  */
 
+import { GoogleGenAI } from "@google/genai";
+
+// Supported audio formats for Gemini Audio API
+export const SUPPORTED_AUDIO_FORMATS = [
+  'audio/wav', 'audio/mp3', 'audio/aiff', 
+  'audio/aac', 'audio/ogg', 'audio/flac'
+] as const;
+
+export type SupportedAudioFormat = typeof SUPPORTED_AUDIO_FORMATS[number];
+
 export interface GeminiSTTConfig {
-  /** Language code for speech recognition (e.g., 'zh-TW', 'en-US') */
-  language?: string;
-  /** Whether to enable continuous recognition */
-  continuous?: boolean;
-  /** Whether to return interim results */
-  interimResults?: boolean;
-  /** Maximum number of alternatives to return */
-  maxAlternatives?: number;
+  /** API key for accessing the Google Generative AI service */
+  apiKey: string;
+  /** Audio recording format (default: wav) */
+  audioFormat?: SupportedAudioFormat;
+  /** Recording segment duration in seconds (default: 3) */
+  segmentDuration?: number;
+  /** Sample rate for audio recording (default: 16000) */
+  sampleRate?: number;
   /** Whether to enable logging */
   enableLogging?: boolean;
+  /** Custom transcription prompt */
+  transcriptionPrompt?: string;
 }
 
 export interface STTResult {
   /** The transcribed text */
   transcript: string;
-  /** Confidence level (0-1) */
-  confidence: number;
   /** Whether this is a final result */
   isFinal: boolean;
-  /** Alternative transcriptions */
-  alternatives?: Array<{
-    transcript: string;
-    confidence: number;
-  }>;
+  /** Segment index */
+  segmentIndex: number;
+  /** Confidence level (estimated) */
+  confidence: number;
+  /** Processing time in milliseconds */
+  processingTime: number;
 }
 
 export interface STTEvents {
@@ -36,247 +47,342 @@ export interface STTEvents {
   onStart?: () => void;
   onEnd?: () => void;
   onError?: (error: string) => void;
-  onSpeechStart?: () => void;
-  onSpeechEnd?: () => void;
+  onSegmentStart?: (segmentIndex: number) => void;
+  onSegmentEnd?: (segmentIndex: number) => void;
 }
 
 /**
- * Service class for Speech-to-Text conversion using browser Web Speech API.
- * Provides real-time speech recognition capabilities.
+ * Service class for Speech-to-Text conversion using Gemini Audio API.
+ * Provides segmented recording for near real-time transcription.
  */
 export class GeminiSTTService {
-  private recognition: SpeechRecognition | null = null;
-  private isRecognitionSupported: boolean;
+  private readonly client: GoogleGenAI;
+  private readonly config: Required<Omit<GeminiSTTConfig, 'apiKey'>>;
+  
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioStream: MediaStream | null = null;
   private isRecording: boolean = false;
-  private readonly config: Required<GeminiSTTConfig>;
   private events: Partial<STTEvents> = {};
+  private currentSegmentIndex: number = 0;
+  private recordedChunks: Blob[] = [];
+  private segmentTimer: NodeJS.Timeout | null = null;
 
   /**
    * Creates a new GeminiSTTService instance.
    * @param config - Configuration options for the STT service.
    */
-  constructor(config: GeminiSTTConfig = {}) {
-    // Check for Web Speech API support
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    this.isRecognitionSupported = !!SpeechRecognition;
+  constructor(config: GeminiSTTConfig) {
+    if (!config.apiKey) {
+      throw new Error("API key is missing. Please provide a valid API key.");
+    }
 
+    this.client = new GoogleGenAI({ apiKey: config.apiKey });
+    
     // Default configuration
     this.config = {
-      language: config.language ?? 'zh-TW',
-      continuous: config.continuous ?? true,
-      interimResults: config.interimResults ?? true,
-      maxAlternatives: config.maxAlternatives ?? 3,
+      audioFormat: config.audioFormat ?? 'audio/wav',
+      segmentDuration: config.segmentDuration ?? 3,
+      sampleRate: config.sampleRate ?? 16000,
       enableLogging: config.enableLogging ?? false,
-    };
-
-    if (this.isRecognitionSupported) {
-      this.recognition = new SpeechRecognition();
-      this.setupRecognition();
-    } else {
-      this.log('Web Speech API is not supported in this browser');
-    }
-  }
-
-  /**
-   * Sets up the speech recognition with configuration and event handlers.
-   */
-  private setupRecognition(): void {
-    if (!this.recognition) return;
-
-    // Configure recognition
-    this.recognition.lang = this.config.language;
-    this.recognition.continuous = this.config.continuous;
-    this.recognition.interimResults = this.config.interimResults;
-    this.recognition.maxAlternatives = this.config.maxAlternatives;
-
-    // Event handlers
-    this.recognition.onstart = () => {
-      this.isRecording = true;
-      this.log('Speech recognition started');
-      this.events.onStart?.();
-    };
-
-    this.recognition.onend = () => {
-      this.isRecording = false;
-      this.log('Speech recognition ended');
-      this.events.onEnd?.();
-    };
-
-    this.recognition.onerror = (event) => {
-      const errorMessage = `Speech recognition error: ${event.error}`;
-      this.log(errorMessage);
-      this.events.onError?.(errorMessage);
-    };
-
-    this.recognition.onresult = (event) => {
-      this.handleSpeechResult(event);
-    };
-
-    this.recognition.onspeechstart = () => {
-      this.log('Speech detected');
-      this.events.onSpeechStart?.();
-    };
-
-    this.recognition.onspeechend = () => {
-      this.log('Speech ended');
-      this.events.onSpeechEnd?.();
+      transcriptionPrompt: config.transcriptionPrompt ?? 'Please transcribe this audio to text.'
     };
   }
 
   /**
-   * Handles speech recognition results.
-   * @param event - SpeechRecognitionEvent
-   */
-  private handleSpeechResult(event: SpeechRecognitionEvent): void {
-    const lastResult = event.results[event.results.length - 1];
-    
-    if (lastResult) {
-      const result: STTResult = {
-        transcript: lastResult[0].transcript,
-        confidence: lastResult[0].confidence,
-        isFinal: lastResult.isFinal,
-        alternatives: Array.from(lastResult).map(alternative => ({
-          transcript: alternative.transcript,
-          confidence: alternative.confidence
-        }))
-      };
-
-      this.log([
-        `Transcript: ${result.transcript}`,
-        `Confidence: ${result.confidence.toFixed(2)}`,
-        `Final: ${result.isFinal}`
-      ]);
-
-      this.events.onResult?.(result);
-    }
-  }
-
-  /**
-   * Starts speech recognition.
+   * Starts speech recognition with segmented recording.
    * @param events - Event handlers for recognition events
-   * @throws {Error} If Web Speech API is not supported
    */
-  public startRecognition(events: STTEvents): void {
-    if (!this.isRecognitionSupported) {
-      throw new Error('Web Speech API is not supported in this browser');
-    }
-
+  async startRecognition(events: STTEvents): Promise<void> {
     if (this.isRecording) {
       this.log('Recognition is already running');
       return;
     }
 
     this.events = events;
-    this.recognition?.start();
-    this.log('Starting speech recognition');
+    this.currentSegmentIndex = 0;
+    this.recordedChunks = [];
+
+    try {
+      // Request microphone access
+      this.audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: this.config.sampleRate,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      });
+
+      // Create MediaRecorder
+      const options: MediaRecorderOptions = {
+        mimeType: this.getSupportedMimeType()
+      };
+
+      this.mediaRecorder = new MediaRecorder(this.audioStream, options);
+      this.setupMediaRecorder();
+
+      // Start recording
+      this.mediaRecorder.start();
+      this.isRecording = true;
+      this.startSegmentTimer();
+
+      this.log('Started Gemini STT recognition');
+      this.events.onStart?.();
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start recording';
+      this.log(`Error starting recognition: ${errorMessage}`);
+      this.events.onError?.(errorMessage);
+    }
   }
 
   /**
    * Stops speech recognition.
    */
-  public stopRecognition(): void {
-    if (!this.isRecognitionSupported || !this.isRecording) {
+  stopRecognition(): void {
+    if (!this.isRecording) {
       return;
     }
 
-    this.recognition?.stop();
-    this.log('Stopping speech recognition');
-  }
-
-  /**
-   * Aborts speech recognition immediately.
-   */
-  public abortRecognition(): void {
-    if (!this.isRecognitionSupported) {
-      return;
-    }
-
-    this.recognition?.abort();
     this.isRecording = false;
-    this.log('Aborting speech recognition');
-  }
 
-  /**
-   * Updates the recognition language.
-   * @param language - Language code (e.g., 'zh-TW', 'en-US')
-   */
-  public setLanguage(language: string): void {
-    this.config.language = language;
-    if (this.recognition) {
-      this.recognition.lang = language;
+    if (this.segmentTimer) {
+      clearTimeout(this.segmentTimer);
+      this.segmentTimer = null;
     }
-    this.log(`Language set to: ${language}`);
+
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
+    }
+
+    if (this.audioStream) {
+      this.audioStream.getTracks().forEach(track => track.stop());
+      this.audioStream = null;
+    }
+
+    this.log('Stopped Gemini STT recognition');
+    this.events.onEnd?.();
   }
 
   /**
-   * Checks if speech recognition is currently active.
-   * @returns boolean indicating if recognition is recording
+   * Sets up MediaRecorder event handlers.
    */
-  public isRecognizing(): boolean {
+  private setupMediaRecorder(): void {
+    if (!this.mediaRecorder) return;
+
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        this.recordedChunks.push(event.data);
+      }
+    };
+
+    this.mediaRecorder.onstop = async () => {
+      if (this.recordedChunks.length > 0) {
+        await this.processAudioSegment();
+      }
+    };
+
+    this.mediaRecorder.onerror = (event) => {
+      this.log(`MediaRecorder error: ${event.error}`);
+      this.events.onError?.(`Recording error: ${event.error}`);
+    };
+  }
+
+  /**
+   * Starts the segment timer for automatic segmentation.
+   */
+  private startSegmentTimer(): void {
+    if (!this.isRecording) return;
+
+    this.segmentTimer = setTimeout(() => {
+      if (this.isRecording && this.mediaRecorder) {
+        this.processCurrentSegment();
+      }
+    }, this.config.segmentDuration * 1000);
+  }
+
+  /**
+   * Processes the current audio segment.
+   */
+  private async processCurrentSegment(): Promise<void> {
+    if (!this.mediaRecorder || !this.isRecording) return;
+
+    this.log(`Processing segment ${this.currentSegmentIndex}`);
+    this.events.onSegmentStart?.(this.currentSegmentIndex);
+
+    // Stop current recording to trigger processing
+    this.mediaRecorder.stop();
+
+    // Start new recording for next segment
+    setTimeout(() => {
+      if (this.isRecording && this.audioStream) {
+        this.recordedChunks = [];
+        this.mediaRecorder = new MediaRecorder(this.audioStream, {
+          mimeType: this.getSupportedMimeType()
+        });
+        this.setupMediaRecorder();
+        this.mediaRecorder.start();
+        this.startSegmentTimer();
+      }
+    }, 100);
+  }
+
+  /**
+   * Processes recorded audio segment using Gemini Audio API.
+   */
+  private async processAudioSegment(): Promise<void> {
+    const startTime = Date.now();
+    
+    try {
+      // Create audio blob
+      const audioBlob = new Blob(this.recordedChunks, { 
+        type: this.config.audioFormat 
+      });
+
+      if (audioBlob.size === 0) {
+        this.log('Empty audio segment, skipping');
+        return;
+      }
+
+      // Convert to base64
+      const base64Audio = await this.blobToBase64(audioBlob);
+      
+      this.log([
+        `Processing audio segment ${this.currentSegmentIndex}`,
+        `Size: ${audioBlob.size} bytes`,
+        `Format: ${this.config.audioFormat}`
+      ]);
+
+      // Call Gemini Audio API
+      const result = await this.client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          { 
+            text: this.config.transcriptionPrompt 
+          },
+          {
+            inlineData: {
+              mimeType: this.config.audioFormat,
+              data: base64Audio,
+            },
+          },
+        ],
+      });
+
+      const transcript = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+      const processingTime = Date.now() - startTime;
+
+      if (transcript && transcript.length > 0) {
+        const sttResult: STTResult = {
+          transcript,
+          isFinal: true,
+          segmentIndex: this.currentSegmentIndex,
+          confidence: 0.9, // Gemini doesn't provide confidence scores
+          processingTime
+        };
+
+        this.log([
+          `Transcription complete for segment ${this.currentSegmentIndex}`,
+          `Text: "${transcript}"`,
+          `Processing time: ${processingTime}ms`
+        ]);
+
+        this.events.onResult?.(sttResult);
+      }
+
+      this.events.onSegmentEnd?.(this.currentSegmentIndex);
+      this.currentSegmentIndex++;
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.log(`Error processing audio segment: ${errorMessage}`);
+      this.events.onError?.(`Transcription failed: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Converts Blob to base64 string.
+   */
+  private async blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data URL prefix
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
+   * Gets the best supported MIME type for recording.
+   */
+  private getSupportedMimeType(): string {
+    // Check browser support for different formats
+    const formatMap = {
+      'audio/wav': 'audio/wav',
+      'audio/webm;codecs=opus': 'audio/ogg',
+      'audio/mp4': 'audio/aac',
+      'audio/ogg;codecs=opus': 'audio/ogg'
+    };
+
+    for (const [mimeType, apiFormat] of Object.entries(formatMap)) {
+      if (MediaRecorder.isTypeSupported(mimeType) && apiFormat === this.config.audioFormat) {
+        return mimeType;
+      }
+    }
+
+    // Fallback to most compatible format
+    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+      return 'audio/webm;codecs=opus';
+    }
+    
+    return 'audio/wav';
+  }
+
+  /**
+   * Checks if the browser supports MediaRecorder.
+   */
+  static isSupported(): boolean {
+    return typeof MediaRecorder !== 'undefined' && 
+           typeof navigator.mediaDevices?.getUserMedia !== 'undefined';
+  }
+
+  /**
+   * Gets supported audio formats.
+   */
+  static getSupportedFormats(): SupportedAudioFormat[] {
+    return [...SUPPORTED_AUDIO_FORMATS];
+  }
+
+  /**
+   * Checks if currently recording.
+   */
+  isRecognizing(): boolean {
     return this.isRecording;
   }
 
   /**
-   * Checks if the browser supports Web Speech API.
-   * @returns boolean indicating support
-   */
-  public static isSupported(): boolean {
-    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-  }
-
-  /**
-   * Gets available languages for speech recognition.
-   * Note: This is a basic list. Actual support may vary by browser.
-   * @returns Array of language codes
-   */
-  public static getSupportedLanguages(): string[] {
-    return [
-      'zh-TW', // Traditional Chinese (Taiwan)
-      'zh-CN', // Simplified Chinese (China)
-      'en-US', // English (US)
-      'en-GB', // English (UK)
-      'ja-JP', // Japanese
-      'ko-KR', // Korean
-      'es-ES', // Spanish
-      'fr-FR', // French
-      'de-DE', // German
-      'it-IT', // Italian
-      'pt-BR', // Portuguese (Brazil)
-      'ru-RU', // Russian
-      'ar-SA', // Arabic
-      'hi-IN', // Hindi
-      'th-TH'  // Thai
-    ];
-  }
-
-  /**
-   * Gets the current configuration.
-   * @returns Current STT configuration
-   */
-  public getConfig(): Required<GeminiSTTConfig> {
-    return { ...this.config };
-  }
-
-  /**
    * Updates the configuration.
-   * @param newConfig - Partial configuration to update
    */
-  public updateConfig(newConfig: Partial<GeminiSTTConfig>): void {
+  updateConfig(newConfig: Partial<Omit<GeminiSTTConfig, 'apiKey'>>): void {
     Object.assign(this.config, newConfig);
-    
-    if (this.recognition) {
-      this.recognition.lang = this.config.language;
-      this.recognition.continuous = this.config.continuous;
-      this.recognition.interimResults = this.config.interimResults;
-      this.recognition.maxAlternatives = this.config.maxAlternatives;
-    }
-
     this.log('Configuration updated');
   }
 
   /**
+   * Gets the current configuration.
+   */
+  getConfig(): Required<Omit<GeminiSTTConfig, 'apiKey'>> {
+    return { ...this.config };
+  }
+
+  /**
    * Logs information if logging is enabled.
-   * @param info - Information to be logged. Can be a string or an array of strings.
    */
   private log(info: string | string[]): void {
     if (!this.config.enableLogging) return;
@@ -288,89 +394,3 @@ export class GeminiSTTService {
     console.log(`[DEBUG GeminiSTTService]\n${logMessage}`);
   }
 }
-
-// Extend the Window interface to include SpeechRecognition
-declare global {
-  interface Window {
-    SpeechRecognition?: typeof SpeechRecognition;
-    webkitSpeechRecognition?: typeof SpeechRecognition;
-  }
-  
-  interface SpeechRecognitionEvent extends Event {
-    results: SpeechRecognitionResultList;
-    resultIndex: number;
-  }
-
-  interface SpeechRecognitionResultList {
-    readonly length: number;
-    item(index: number): SpeechRecognitionResult;
-    [index: number]: SpeechRecognitionResult;
-  }
-
-  interface SpeechRecognitionResult {
-    readonly isFinal: boolean;
-    readonly length: number;
-    item(index: number): SpeechRecognitionAlternative;
-    [index: number]: SpeechRecognitionAlternative;
-  }
-
-  interface SpeechRecognitionAlternative {
-    readonly transcript: string;
-    readonly confidence: number;
-  }
-
-  interface SpeechRecognition extends EventTarget {
-    continuous: boolean;
-    grammars: SpeechGrammarList;
-    interimResults: boolean;
-    lang: string;
-    maxAlternatives: number;
-    serviceURI: string;
-    
-    onaudioend: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onaudiostart: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onend: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
-    onnomatch: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
-    onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
-    onsoundend: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onsoundstart: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onspeechend: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onspeechstart: ((this: SpeechRecognition, ev: Event) => any) | null;
-    onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
-    
-    abort(): void;
-    start(): void;
-    stop(): void;
-  }
-
-  interface SpeechRecognitionErrorEvent extends Event {
-    readonly error: string;
-    readonly message: string;
-  }
-
-  interface SpeechGrammarList {
-    readonly length: number;
-    item(index: number): SpeechGrammar;
-    [index: number]: SpeechGrammar;
-    addFromString(string: string, weight?: number): void;
-    addFromURI(src: string, weight?: number): void;
-  }
-
-  interface SpeechGrammar {
-    src: string;
-    weight: number;
-  }
-
-  var SpeechRecognition: {
-    prototype: SpeechRecognition;
-    new(): SpeechRecognition;
-  };
-
-  var webkitSpeechRecognition: {
-    prototype: SpeechRecognition;
-    new(): SpeechRecognition;
-  };
-}
-
-// Types are exported at declaration site

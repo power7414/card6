@@ -35,7 +35,7 @@ const MODE_OPTIONS: ModeOption[] = [
     value: 'stt-tts',
     label: 'STT + TTS',
     description: '語音轉文字 + 文字轉語音',
-    iconPath: '/images/mode-icons/stt-tts.svg',
+    iconPath: '/images/mode-icons/live-api.png',
     fallbackIcon: 'hearing'
   }
 ];

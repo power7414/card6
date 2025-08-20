@@ -7,12 +7,12 @@
 .conversation-mode-selector {
   position: relative;
   width: 100%;
-  max-width: 300px;
+  max-width: 380px;
   
   // 當在控制台中使用時的特殊樣式
   .control-tray & {
-    max-width: 250px;
-    min-width: 200px;
+    max-width: 320px;
+    min-width: 260px;
   }
   
   &.disabled {
@@ -30,7 +30,7 @@
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s;
-    min-width: 120px;
+    min-width: 150px;
     
     &:hover:not(.disabled) {
       background: #f9f9f9;
@@ -243,7 +243,7 @@
     
     .mode-selector-trigger {
       padding: 6px 10px;
-      min-width: 100px;
+      min-width: 130px;
 
       .selected-mode {
         .mode-info {
