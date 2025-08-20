@@ -61,49 +61,9 @@
     position: relative;
   }
 
-  // 側邊欄收合按鈕
+  // 側邊欄收合按鈕 - 隱藏
   .sidebar-toggle-btn {
-    position: fixed;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 200;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 0 8px 8px 0;
-    width: 32px;
-    height: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    color: var(--text-secondary);
-    
-    &:hover {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      transform: translateY(-50%) translateX(2px);
-    }
-
-    &:active {
-      transform: translateY(-50%) translateX(0px);
-    }
-
-    &.open {
-      left: 300px; // 與側邊欄寬度一致
-    }
-
-    &.closed {
-      left: 0px;
-      border-left: none;
-      border-radius: 0 8px 8px 0;
-    }
-
-    .icon {
-      width: 16px;
-      height: 16px;
-      transition: transform 0.2s ease;
-    }
+    display: none; // 完全隱藏收合按鈕
   }
 
   // 隱藏 CollapsiblePanel 內建的切換按鈕

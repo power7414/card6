@@ -2,6 +2,7 @@ import React from 'react';
 import { FiMenu, FiSettings, FiHelpCircle, FiWifi, FiWifiOff } from 'react-icons/fi';
 import { useLiveAPIContext } from '../../contexts/LiveAPIContext';
 import { useChatManager } from '../../hooks/use-chat-manager';
+import { useUIStore } from '../../stores/ui-store';
 import './layout.scss';
 
 interface HeaderProps {
@@ -15,6 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { connected, connectWithResumption, sessionTimeLeft } = useLiveAPIContext();
   const { activeChatRoom, createNewChatRoom } = useChatManager();
+  const { toggleLeftPanel } = useUIStore();
 
   const handleConnect = async () => {
     console.log('🎯 [Header] handleConnect 被呼叫，connected:', connected);
@@ -46,7 +48,11 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="app-header">
       <div className="header-left">
-        <button className="menu-button" aria-label="Menu">
+        <button 
+          className="menu-button" 
+          onClick={toggleLeftPanel}
+          aria-label="Toggle sidebar"
+        >
           <FiMenu />
         </button>
         <h1 className="app-title">對話測試平台</h1>

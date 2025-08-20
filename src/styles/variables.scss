@@ -1,14 +1,14 @@
 // 顏色變數
 :root {
   // 背景色
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: #2a2a2a;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f8f8;
+  --bg-tertiary: #f0f0f0;
   
   // 文字色
-  --text-primary: #ffffff;
-  --text-secondary: #b0b0b0;
-  --text-tertiary: #707070;
+  --text-primary: #000000;
+  --text-secondary: #4a4a4a;
+  --text-tertiary: #888888;
   
   // 強調色
   --accent-color: #4285f4;
@@ -18,11 +18,11 @@
   --error-color: #ea4335;
   
   // 邊框
-  --border-color: #333333;
-  --border-hover: #555555;
+  --border-color: #e0e0e0;
+  --border-hover: #c0c0c0;
   
   // 其他
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   --transition: all 0.2s ease;
 }
 

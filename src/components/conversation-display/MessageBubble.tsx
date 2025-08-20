@@ -29,7 +29,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast })
       <div className="message-content">
         <div className="message-header">
           <span className="message-sender">
-            {isUser ? '你' : 'AI 助手'}
+            {isUser ? '你' : '國泰小樹'}
           </span>
           <span className="message-time">
             {formatTime(message.timestamp)}
