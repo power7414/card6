@@ -110,13 +110,12 @@ export class GeminiTTSService {
         `Model: ${this.defaultConfig.model}`
       ]);
 
-      // Call Gemini TTS API
+      // Call Gemini TTS API - format matches official documentation
       const result = await this.client.models.generateContent({
         model: this.defaultConfig.model,
         contents: [{ 
-          role: 'user',
           parts: [{ text: textContent }] 
-        }],
+        }], // No 'role' property for TTS models
         config: {
           responseModalities: ['AUDIO'],
           speechConfig: {
@@ -129,8 +128,43 @@ export class GeminiTTSService {
         }
       });
 
+      // Debug: Log the complete API response structure
+      this.log('=== Complete TTS API Response Debug ===');
+      this.log(`Response has result: ${!!result}`);
+      this.log(`Response keys: ${result ? Object.keys(result).join(', ') : 'none'}`);
+      
+      if (result?.candidates) {
+        this.log(`Candidates length: ${result.candidates.length}`);
+        if (result.candidates[0]) {
+          this.log(`First candidate keys: ${Object.keys(result.candidates[0]).join(', ')}`);
+          
+          if (result.candidates[0].content) {
+            this.log(`Content keys: ${Object.keys(result.candidates[0].content).join(', ')}`);
+            
+            if (result.candidates[0].content.parts) {
+              this.log(`Parts length: ${result.candidates[0].content.parts.length}`);
+              result.candidates[0].content.parts.forEach((part: any, index: number) => {
+                this.log(`Part ${index} keys: ${Object.keys(part).join(', ')}`);
+                if (part.inlineData) {
+                  this.log(`Part ${index} inlineData keys: ${Object.keys(part.inlineData).join(', ')}`);
+                  this.log(`Part ${index} has data: ${!!part.inlineData.data}`);
+                  if (part.inlineData.data) {
+                    this.log(`Part ${index} data length: ${part.inlineData.data.length}`);
+                  }
+                }
+              });
+            }
+          }
+        }
+      }
+      
+      // Log the raw response for debugging
+      this.log('Raw response (first 500 chars):');
+      this.log(JSON.stringify(result, null, 2).substring(0, 500));
+
       // Extract audio data from response
       if (!result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
+        this.log('❌ No audio data found at expected path');
         throw new Error('No audio data received from Gemini TTS API');
       }
 
