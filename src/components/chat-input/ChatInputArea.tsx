@@ -61,7 +61,8 @@ export const ChatInputArea: React.FC = () => {
     openaiApiKey: process.env.REACT_APP_OPENAI_API_KEY,
     sttLanguage: 'zh-TW',
     ttsLanguage: 'zh-TW',
-    enableLogging: process.env.NODE_ENV === 'development'
+    enableLogging: process.env.NODE_ENV === 'development',
+    enabled: isSTTTTSMode // 新增：只在 STT+TTS 模式下啟用
   });
   
   // 追蹤組件掛載/卸載

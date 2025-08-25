@@ -14,7 +14,8 @@ export const ConversationArea: React.FC = () => {
   const geminiConversation = useGeminiConversation({
     geminiApiKey: process.env.REACT_APP_GEMINI_API_KEY,
     openaiApiKey: process.env.REACT_APP_OPENAI_API_KEY,
-    enableLogging: process.env.NODE_ENV === 'development'
+    enableLogging: process.env.NODE_ENV === 'development',
+    enabled: isSTTTTSMode // 只在 STT+TTS 模式下啟用
   });
   const activeChatRoom = getActiveChatRoom();
 

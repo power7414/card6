@@ -24,6 +24,8 @@ export interface UseGeminiConversationConfig {
   enableLogging?: boolean;
   /** Disable TTS temporarily (for testing or quota issues) */
   disableTTS?: boolean;
+  /** Enable STT+TTS services - only initialize when needed */
+  enabled?: boolean;
 }
 
 export interface UseGeminiConversationResult {
@@ -76,8 +78,13 @@ export function useGeminiConversation(
   const [error, setError] = useState<string | null>(null);
   const [currentConfig, setCurrentConfig] = useState<UseGeminiConversationConfig>(config);
   
-  // Initialize services when config changes
+  // Initialize services when config changes - 只在 enabled: true 時初始化
   useEffect(() => {
+    // Only initialize services if explicitly enabled
+    if (!currentConfig.enabled) {
+      return;
+    }
+    
     try {
       // Initialize Chat Service
       if (currentConfig.geminiApiKey) {
