@@ -79,12 +79,22 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
   
   // 根據前端設定動態生成語音配置
   const getSpeechConfig = useCallback(() => {
-    return {
+    const config = {
       languageCode: "cmn-CN", // Live API 主要使用語言代碼控制
-      // 注意：Live API 語音控制主要透過 systemInstruction 實現
-      // 不同於 TTS API 的 voiceConfig
+      voiceConfig: {
+        prebuiltVoiceConfig: {
+          voiceName: settings.voice // 使用前端選擇的音色
+        }
+      }
     };
-  }, []);
+    
+    // 除錯：確認音色設定
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🎵 Live API Speech Config - Voice: ${settings.voice}`);
+    }
+    
+    return config;
+  }, [settings.voice]);
 
   const [config, setConfig] = useState<LiveConnectConfig>(() => ({
     responseModalities: [Modality.AUDIO],
@@ -114,10 +124,13 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
       ? `${voiceGuidance}\n\n${systemPrompt}`
       : systemPrompt;
       
-    // Enhanced system instruction generated silently
+    // 除錯：確認語調設定整合
+    if (process.env.NODE_ENV === 'development' && voiceGuidance) {
+      console.log(`🎭 Live API Enhanced System Instruction - Tone: ${settings.tone}, Style: ${ttsStylePrompt}`);
+    }
     
     return enhancedPrompt;
-  }, [systemPrompt, ttsStylePrompt]);
+  }, [systemPrompt, ttsStylePrompt, settings.tone]);
 
   // Update config when system prompt or settings change
   useEffect(() => {
@@ -141,9 +154,10 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
     }
 
     try {
-      // Live configuration updated silently
+      // Live configuration updated silently  
       const updatedConfig = {
         ...config,
+        speechConfig: getSpeechConfig(), // 包含音色設定
         systemInstruction: {
           parts: [{
             text: getEnhancedSystemInstruction()
@@ -156,7 +170,7 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
     } catch (error) {
       console.error('❌ [LiveAPI] Failed to update live configuration:', error);
     }
-  }, [connected, client, getEnhancedSystemInstruction, settings.voice, settings.tone]);
+  }, [connected, client, getEnhancedSystemInstruction, getSpeechConfig, settings.voice, settings.tone]);
 
   // Trigger configuration update when settings change and Live API is connected
   useEffect(() => {

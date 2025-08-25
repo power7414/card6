@@ -10,13 +10,15 @@ export const TONE_OPTIONS = [
   { value: 'impatient', label: '不耐煩', systemPrompt: '請用略帶不耐煩的語氣回應。' }
 ] as const;
 
-// 音色選項 (根據使用者需求調整)
+// 音色選項 (支援 Live API 和 TTS API 的共同音色)
 export const VOICE_OPTIONS = [
   { value: 'Zephyr', label: 'Zephyr', description: '清新明亮' },
   { value: 'Puck', label: 'Puck', description: '活潑俏皮' },
   { value: 'Leda', label: 'Leda', description: '溫和穩重' },
   { value: 'Kore', label: 'Kore', description: '專業標準' },
-  { value: 'Charon', label: 'Charon', description: '低沉厚重' }
+  { value: 'Charon', label: 'Charon', description: '低沉厚重' },
+  { value: 'Fenrir', label: 'Fenrir', description: '活力充沛' },
+  { value: 'Aoede', label: 'Aoede', description: '優雅柔和' }
 ] as const;
 
 export type ToneValue = typeof TONE_OPTIONS[number]['value'];
