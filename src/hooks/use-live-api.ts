@@ -136,7 +136,7 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
     }
 
     try {
-      console.log('🔄 [LiveAPI] Updating live session configuration...');
+      // Live configuration updated silently
       const updatedConfig = {
         ...config,
         systemInstruction: {
@@ -146,23 +146,12 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
         }
       };
       
-      // Note: Live API 的即時配置更新可能需要重新連接
-      // 這裡我們可以考慮發送一個配置更新訊息或重新連接
-      console.log('📋 [LiveAPI] New configuration prepared:', {
-        hasSystemInstruction: !!updatedConfig.systemInstruction,
-        voiceSettings: {
-          voice: settings.voice,
-          tone: settings.tone
-        }
-      });
-      
-      // 更新本地配置
-      setConfig(updatedConfig);
+      // Note: 不需要在這裡更新本地配置，已在 useEffect 中處理
       
     } catch (error) {
       console.error('❌ [LiveAPI] Failed to update live configuration:', error);
     }
-  }, [connected, client, config, getEnhancedSystemInstruction, settings]);
+  }, [connected, client, getEnhancedSystemInstruction, settings.voice, settings.tone]);
 
   // Trigger configuration update when settings change and Live API is connected
   useEffect(() => {
