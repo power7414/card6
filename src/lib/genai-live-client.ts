@@ -274,22 +274,18 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     };
 
     try {
-      // TODO: Update when Live API is available in @google/genai
-      // this._session = await this.client.live.connect({
-      //   model,
-      //   config: enhancedConfig,
-      //   callbacks,
-      // });
+      // Attempting to connect with Live API - should be available in @google/genai 1.15.0+
+      this._session = await this.client.live.connect({
+        model,
+        config: enhancedConfig,
+        callbacks,
+      });
       
-      // Temporary mock for building
-      console.warn('⚠️ Live API not available in current @google/genai version');
-      this._session = null;
-      return false; // Return false since Live API is not available
+      console.log('✅ Live API connection established successfully');
+      this.reconnectAttempts = 0; // Reset on successful connection
       
-      // TODO: Restore when Live API is available
       // Wait for setup completion before marking as connected
       // This prevents premature audio data sending
-      /*
       return await new Promise<boolean>((resolve, reject) => {
         let setupCompleted = false;
         
@@ -319,7 +315,6 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         
         this.once("setupcomplete", onSetupComplete);
       });
-      */
     } catch (e) {
       console.error("Error connecting to GenAI Live:", e);
       this._status = "disconnected";
