@@ -2,18 +2,18 @@
 
 ## 📋 專案概述
 
-**最後更新**: 2025-08-20  
-**專案版本**: 0.2.0  
+**最後更新**: 2025-08-25  
+**專案版本**: 0.2.1  
 **技術負責人**: Development Team
 
-這是一個基於 React 18 + TypeScript 的專業多模態 AI 對話平台，整合了完整的 Google Gemini API 生態系統。**支援雙模式對話系統**：Live API 即時互動和 STT+TTS 分離式處理，提供企業級的語音對話、多聊天室管理、session resumption、高品質音頻處理等功能。
+這是一個基於 React 18 + TypeScript 的專業多模態 AI 對話平台，整合了完整的 Google Gemini API 生態系統。**支援雙模式對話系統**：Live API 即時語音互動和 LLM+TTS 文字輸入語音回覆，提供企業級的語音對話、多聊天室管理、session resumption、豐富的模型選擇等功能。
 
 ### 🎯 專案目標
 
-1. **雙模式 API 整合**：Live API (即時) + STT+TTS (高品質) 的完整解決方案
+1. **雙模式 API 整合**：Live API (即時語音對話) + LLM+TTS (文字輸入語音回覆) 的完整解決方案
 2. **企業級對話管理系統**：多聊天室、智能模式切換、數據持久化、session resumption
-3. **專業音頻處理 Pipeline**：16kHz 採樣、分段處理、多格式支援、自動清理
-4. **開發者友好工具生態**：9個核心 hooks、統一服務層、完整的 TypeScript 支援
+3. **豐富的模型選擇**：Live API、LLM、TTS 模型可自由選擇，7種專業語音 + 5種語調風格
+4. **開發者友好工具生態**：12個核心 hooks、統一服務層、完整的 TypeScript 支援
 
 ---
 
@@ -139,29 +139,28 @@ graph TB
 
 | 模式 | API 服務 | 延遲 | 品質 | 適用場景 |
 |------|----------|------|------|----------|
-| **Live API** | Gemini Live API | <100ms | 即時串流 | 日常對話、快速互動 |
-| **STT+TTS** | 3個獨立 API | ~3秒 | 專業級 | 會議記錄、專業訪談 |
+| **Live API** | Gemini Live API | <100ms | 即時串流 | 即時語音對話、快速互動 |
+| **LLM+TTS** | 2個獨立 API | ~2秒 | 專業級 | 文字輸入、語音回覆 |
 
-#### 🚀 STT+TTS 模式 (新增) 
+#### 🚀 LLM+TTS 模式 (重構) 
 
-完全重新設計的分離式語音處理系統：
+專為文字輸入和語音回覆設計的系統：
 
 ```typescript
 // src/services/gemini/
-├── gemini-stt.ts    // 分段錄音 + Gemini Audio API
-├── gemini-tts.ts    // 30種語音 + gemini-2.5-flash-preview-tts
+├── gemini-tts.ts    // 7種專業語音 + gemini-2.5-flash-preview-tts
 ├── gemini-chat.ts   // 標準對話 + gemini-2.5-flash
-└── genai-live-client.ts // Live API WebSocket (原有)
+└── genai-live-client.ts // Live API WebSocket
 ```
 
-**STT 服務特色**:
-- ✅ **分段處理**: 每3秒自動分割和處理音頻
-- ✅ **高品質採樣**: 16kHz 專業級錄音
-- ✅ **多格式支援**: WAV, MP3, FLAC, AAC, OGG, AIFF
-- ✅ **自動清理**: 用完即丟的音頻管理
+**LLM 服務特色**:
+- ✅ **多模型選擇**: gemini-2.5-flash、flash-lite、pro 可選
+- ✅ **快速回應**: 優化的文字對話處理
+- ✅ **上下文保持**: 完整的對話歷史記憶
+- ✅ **語調風格**: 5種語調風格可選 (活潑、沉穩、熱情等)
 
 **TTS 服務特色**:
-- ✅ **30種專業語音**: Kore, Zephyr, Puck, Charon 等
+- ✅ **7種專業語音**: Kore, Zephyr, Puck, Charon, Leda, Fenrir, Aoede
 - ✅ **自定義風格**: 支援語音風格提示
 - ✅ **多語言智能**: 自動語言檢測和適配
 - ✅ **高品質合成**: 24kHz PCM 音頻輸出
@@ -420,7 +419,7 @@ interface AudioVisualizerProps {
 
 ## 🧠 Hook 系統設計
 
-### 自定義 Hook 架構 (9個核心 Hooks)
+### 自定義 Hook 架構 (12個核心 Hooks)
 
 #### 🆕 use-conversation-mode.ts
 雙模式切換的核心邏輯：
@@ -1524,30 +1523,57 @@ describe('Component/Hook/Function Name', () => {
 
 ## 📝 變更日誌
 
+### v0.2.1 (2025-08-25) 🚀
+#### 🎯 重大重構：移除 STT 功能，專注 LLM+TTS
+- 🔄 **STT 功能完全移除**: 移除語音識別功能，專注於文字輸入和語音回覆
+- 🆕 **LLM+TTS 模式優化**: 文字輸入 + AI 自動語音回覆的完整流程
+- 🆕 **模型選擇功能**: 前端設定面板支援 Live API、LLM、TTS 模型切換
+- 🆕 **語音和語調設定**: 7種專業語音 + 5種語調風格可自由組合
+
+#### 重構核心服務
+- 🔄 `src/hooks/use-gemini-conversation.ts`: 移除 STT，專注 LLM+TTS 流程
+- 🔄 `src/components/chat-input/ChatInputArea.tsx`: 簡化 UI，移除 STT 控制項
+- ✨ `src/components/shared/SettingsModal.tsx`: 新增完整的模型選擇介面
+- ✨ `src/contexts/SettingsContext.tsx`: 整合模型設定和語音配置管理
+
+#### UI/UX 改進
+- 🎨 **設定面板重設計**: Live API 模型、LLM 模型、TTS 模型分類選擇
+- 🎨 **模式切換簡化**: Live API (語音對話) ↔ LLM+TTS (文字+語音回覆)
+- 🎨 **狀態指示優化**: 連接、處理、語音播放狀態更清晰顯示
+- 🎨 **控制按鈕整理**: 移除不必要的 STT 相關按鈕
+
+#### 技術改進
+- 🔄 **TypeScript 錯誤清理**: 完全清除 STT 相關類型和介面
+- 🔄 **連接邏輯統一**: 兩種模式都需要手動連接才能使用
+- 🔄 **設定持久化**: 模型選擇和語音設定自動保存到 localStorage
+- 🔄 **向後相容性**: 舊版設定自動遷移到新的模型結構
+
+#### 移除功能
+- 🗑️ **STT 語音識別**: 完全移除 Gemini Audio API 和 OpenAI Whisper 整合
+- 🗑️ **STT UI 控制項**: 移除麥克風按鈕和語音識別相關界面
+- 🗑️ **STT 配置選項**: 清理所有語音識別相關的設定和參數
+
 ### v0.2.0 (2025-08-20) 🚀
-#### 🎯 重大功能：雙模式 API 系統
-- 🆕 **STT+TTS 模式**: 完整的分離式語音處理系統
-- 🆕 **Gemini Audio API 整合**: 取代 Web Speech API，提供專業級 STT
-- 🆕 **30種 Gemini TTS 語音**: Kore, Zephyr, Puck, Charon 等專業語音選擇
-- 🆕 **智能模式切換**: Live API ↔ STT+TTS 無縫切換
+#### 🎯 重大功能：雙模式 API 系統 (已重構)
+- 🆕 **STT+TTS 模式**: 完整的分離式語音處理系統 (已改為 LLM+TTS)
+- 🆕 **Gemini Audio API 整合**: 取代 Web Speech API，提供專業級 STT (已移除)
+- 🆕 **7種 Gemini TTS 語音**: Kore, Zephyr, Puck, Charon 等專業語音選擇
+- 🆕 **智能模式切換**: Live API ↔ LLM+TTS 無縫切換
 
 #### 新增核心服務
-- ✨ `src/services/gemini/gemini-stt.ts`: 分段錄音 + Gemini Audio API
 - ✨ `src/services/gemini/gemini-tts.ts`: 專業語音合成 + 24kHz 音質
 - ✨ `src/services/gemini/gemini-chat.ts`: 標準對話 API
 - ✨ `src/hooks/use-conversation-mode.ts`: 模式切換管理
-- ✨ `src/hooks/use-gemini-conversation.ts`: STT+TTS 完整流程
+- ✨ `src/hooks/use-gemini-conversation.ts`: LLM+TTS 完整流程
 
 #### 新增 UI 組件
 - ✨ `ConversationModeSelector`: 下拉式模式切換選單
-- ✨ `TTSControlTray`: TTS 控制面板
-- ✨ 音頻狀態指示器：錄音、轉錄、語音合成視覺反饋
+- ✨ 狀態指示器：連接、處理、語音合成視覺反饋
 
 #### 技術改進
-- 🔄 **分段音頻處理**: 3秒自動分割，平衡品質與響應速度
+- 🔄 **高品質語音合成**: 24kHz 專業級 TTS 音質
 - 🔄 **音頻生命週期管理**: 用完即丟的隱私保護設計
-- 🔄 **多格式支援**: WAV, MP3, FLAC, AAC, OGG, AIFF
-- 🔄 **16kHz 專業採樣**: 高品質錄音和處理
+- 🔄 **連接狀態管理**: 手動連接機制確保資源控制
 
 #### 移除舊代碼
 - 🗑️ 完全移除 Web Speech API 依賴

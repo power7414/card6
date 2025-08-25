@@ -155,22 +155,12 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
 
     try {
       // Live configuration updated silently  
-      const updatedConfig = {
-        ...config,
-        speechConfig: getSpeechConfig(), // 包含音色設定
-        systemInstruction: {
-          parts: [{
-            text: getEnhancedSystemInstruction()
-          }]
-        }
-      };
-      
-      // Note: 不需要在這裡更新本地配置，已在 useEffect 中處理
+      // Note: 實際的配置更新已在 useEffect 中處理
       
     } catch (error) {
       console.error('❌ [LiveAPI] Failed to update live configuration:', error);
     }
-  }, [connected, client, getEnhancedSystemInstruction, getSpeechConfig, settings.voice, settings.tone]);
+  }, [connected, client, getEnhancedSystemInstruction, getSpeechConfig, settings.voice, settings.tone, config]);
 
   // Trigger configuration update when settings change and Live API is connected
   useEffect(() => {

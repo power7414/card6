@@ -5,7 +5,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GeminiChatService } from '../services/gemini/gemini-chat';
-import { OpenAISTTService, STTResult, STTEvents } from '../services/openai/openai-stt';
 import { GeminiTTSService } from '../services/gemini/gemini-tts';
 import { useChatManager } from './use-chat-manager';
 import { createUserMessage, createAssistantMessage } from '../utils/message-factory';
@@ -14,25 +13,20 @@ import { useSettings } from '../contexts/SettingsContext';
 export interface UseGeminiConversationConfig {
   /** Gemini API key for Chat and TTS */
   geminiApiKey?: string;
-  /** OpenAI API key for STT */
-  openaiApiKey?: string;
-  /** Language for STT */
-  sttLanguage?: string;
   /** Language for TTS */
   ttsLanguage?: string;
   /** Enable logging */
   enableLogging?: boolean;
   /** Disable TTS temporarily (for testing or quota issues) */
   disableTTS?: boolean;
-  /** Enable STT+TTS services - only initialize when needed */
+  /** Enable LLM+TTS services - only initialize when needed */
   enabled?: boolean;
 }
 
 export interface UseGeminiConversationResult {
-  // STT State
-  isListening: boolean;
-  currentTranscript: string;
-  isTranscriptFinal: boolean;
+  // Connection State (類似 Live API)
+  connected: boolean;
+  ready: boolean;
   
   // TTS State
   isSpeaking: boolean;
@@ -41,8 +35,8 @@ export interface UseGeminiConversationResult {
   isProcessingChat: boolean;
   
   // Actions
-  startListening: () => void;
-  stopListening: () => void;
+  connect: () => Promise<void>;
+  disconnect: () => void;
   sendTextMessage: (message: string) => Promise<void>;
   speakMessage: (message: string) => Promise<void>;
   
@@ -54,7 +48,6 @@ export interface UseGeminiConversationResult {
   clearError: () => void;
   
   // Service availability
-  isSTTSupported: boolean;
   isTTSSupported: boolean;
 }
 
@@ -64,68 +57,87 @@ export function useGeminiConversation(
   const { activeChatRoom, addMessage, chatRooms } = useChatManager();
   const { settings, ttsStylePrompt } = useSettings();
   
-  // Services
+  // Services (移除 STT)
   const chatServiceRef = useRef<GeminiChatService | null>(null);
-  const sttServiceRef = useRef<OpenAISTTService | null>(null);
   const ttsServiceRef = useRef<GeminiTTSService | null>(null);
   
-  // State
-  const [isListening, setIsListening] = useState(false);
-  const [currentTranscript, setCurrentTranscript] = useState('');
-  const [isTranscriptFinal, setIsTranscriptFinal] = useState(false);
+  // Connection State (類似 Live API)
+  const [connected, setConnected] = useState(false);
+  const [ready, setReady] = useState(false);
+  
+  // State (移除 STT 相關狀態)
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isProcessingChat, setIsProcessingChat] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentConfig, setCurrentConfig] = useState<UseGeminiConversationConfig>(config);
   
-  // Initialize services when config changes - 只在 enabled: true 時初始化
-  useEffect(() => {
-    // Only initialize services if explicitly enabled
-    if (!currentConfig.enabled) {
+  // Connect function - 手動初始化服務 (LLM+TTS 模式)
+  const connect = useCallback(async () => {
+    if (connected) {
+      console.log('Already connected to LLM+TTS services');
       return;
     }
+
+    setError(null);
+    setConnected(true);
+    setReady(false);
     
     try {
       // Initialize Chat Service
       if (currentConfig.geminiApiKey) {
         chatServiceRef.current = new GeminiChatService({
           apiKey: currentConfig.geminiApiKey,
-          model: settings.models.llm, // 使用選擇的 LLM 模型
+          model: settings.models.llm,
           enableLogging: currentConfig.enableLogging
         });
-      }
-      
-      // Initialize OpenAI STT Service
-      if (currentConfig.openaiApiKey) {
-        sttServiceRef.current = new OpenAISTTService({
-          apiKey: currentConfig.openaiApiKey,
-          audioFormat: 'audio/webm',
-          segmentDuration: 5, // 5-second segments for OpenAI Whisper
-          sampleRate: 16000,
-          enableLogging: currentConfig.enableLogging,
-          language: currentConfig.sttLanguage === 'en-US' ? 'en' : 'zh',
-          model: 'whisper-1'
-        });
+      } else {
+        throw new Error('Gemini API key is required');
       }
       
       // Initialize TTS Service
       if (currentConfig.geminiApiKey) {
         ttsServiceRef.current = new GeminiTTSService({
           apiKey: currentConfig.geminiApiKey,
-          model: settings.models.tts, // 使用選擇的 TTS 模型
+          model: settings.models.tts,
           enableLogging: currentConfig.enableLogging,
           voice: {
-            voiceName: settings.voice, // Use voice from settings
-            stylePrompt: ttsStylePrompt // Use tone-based style prompt
+            voiceName: settings.voice,
+            stylePrompt: ttsStylePrompt
           }
         });
       }
       
+      console.log('✅ LLM+TTS services initialized successfully');
+      setReady(true);
       setError(null);
+      
     } catch (err) {
+      console.error('❌ Failed to initialize LLM+TTS services:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize services');
+      setConnected(false);
+      setReady(false);
+      
+      // Clean up partially initialized services
+      chatServiceRef.current = null;
+      ttsServiceRef.current = null;
     }
-  }, [currentConfig, settings, settings.models.llm, settings.models.tts, ttsStylePrompt]);
+  }, [currentConfig, settings, ttsStylePrompt, connected]);
+
+  // Disconnect function - 清理服務
+  const disconnect = useCallback(() => {
+    console.log('🔌 Disconnecting LLM+TTS services');
+    
+    // Clean up services
+    chatServiceRef.current = null;
+    ttsServiceRef.current = null;
+    
+    // Reset states
+    setConnected(false);
+    setReady(false);
+    setIsSpeaking(false);
+    setIsProcessingChat(false);
+    setError(null);
+  }, []);
 
   // Update TTS service configuration when settings change
   useEffect(() => {
@@ -146,99 +158,14 @@ export function useGeminiConversation(
     setError(null);
   }, []);
 
-  // STT Event handlers
-  const sttEvents: STTEvents = {
-    onResult: (result: STTResult) => {
-      // For segmented results, accumulate transcripts
-      if (result.segmentIndex === 0) {
-        setCurrentTranscript(result.transcript);
-      } else {
-        setCurrentTranscript(prev => `${prev} ${result.transcript}`);
-      }
-      setIsTranscriptFinal(result.isFinal);
-      
-      // Auto-send when final transcript is received from any segment
-      if (result.isFinal && result.transcript.trim()) {
-        const fullTranscript = result.segmentIndex === 0 ? 
-          result.transcript : 
-          `${currentTranscript} ${result.transcript}`;
-        sendTextMessage(fullTranscript.trim());
-      }
-    },
-    onStart: () => {
-      setIsListening(true);
-      setCurrentTranscript('');
-      setIsTranscriptFinal(false);
-      clearError();
-    },
-    onEnd: () => {
-      setIsListening(false);
-    },
-    onError: (errorMessage: string) => {
-      setError(errorMessage);
-      setIsListening(false);
-    },
-    onSegmentStart: (segmentIndex: number) => {
-      // Visual feedback for segment processing
-      if (currentConfig.enableLogging) {
-        console.log(`[STT] Processing segment ${segmentIndex}`);
-      }
-    },
-    onSegmentEnd: (segmentIndex: number) => {
-      // Visual feedback for segment completion
-      if (currentConfig.enableLogging) {
-        console.log(`[STT] Completed segment ${segmentIndex}`);
-      }
-    },
-    // VAD Events
-    onVADSpeechStart: () => {
-      if (currentConfig.enableLogging) {
-        console.log('[VAD] Speech detected - starting recording');
-      }
-      setIsListening(true);
-    },
-    onVADSpeechEnd: () => {
-      if (currentConfig.enableLogging) {
-        console.log('[VAD] Speech ended - processing audio');
-      }
-    },
-    onVADVolumeChange: (volume: number) => {
-      // Optional: Can be used for visual volume indicators
-      if (currentConfig.enableLogging && volume > 0.1) {
-        console.log(`[VAD] Volume level: ${(volume * 100).toFixed(1)}%`);
-      }
-    },
-    // Streaming Events
-    onStreamingResult: (partialResult: string) => {
-      if (currentConfig.enableLogging) {
-        console.log(`[Streaming] Partial result: "${partialResult}"`);
-      }
-      // Update current transcript with streaming result
-      setCurrentTranscript(partialResult);
-      setIsTranscriptFinal(false);
-    }
-  };
-
-  const startListening = useCallback(async () => {
-    if (!sttServiceRef.current) {
-      setError('Speech recognition service not available');
-      return;
-    }
-
-    try {
-      await sttServiceRef.current.startRecognition(sttEvents);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start speech recognition');
-    }
-  }, [sttEvents]);
-
-  const stopListening = useCallback(() => {
-    if (sttServiceRef.current) {
-      sttServiceRef.current.stopRecognition();
-    }
-  }, []);
+  // STT 功能已移除，只保留 LLM + TTS
 
   const sendTextMessage = useCallback(async (message: string) => {
+    if (!connected || !ready) {
+      setError('Please connect to LLM+TTS services first');
+      return;
+    }
+    
     if (!activeChatRoom || !chatServiceRef.current) {
       setError('No active chat room or chat service not available');
       return;
@@ -340,14 +267,17 @@ export function useGeminiConversation(
       await addMessage(activeChatRoom, errorMsg);
     } finally {
       setIsProcessingChat(false);
-      setCurrentTranscript('');
-      setIsTranscriptFinal(false);
     }
-  }, [activeChatRoom, addMessage, chatRooms, clearError, currentConfig.disableTTS, currentConfig.enableLogging, currentConfig.geminiApiKey, settings.voice, ttsStylePrompt]);
+  }, [activeChatRoom, addMessage, chatRooms, clearError, currentConfig.disableTTS, currentConfig.enableLogging, currentConfig.geminiApiKey, settings.voice, ttsStylePrompt, connected, ready]);
 
   const speakMessage = useCallback(async (message: string) => {
+    if (!connected || !ready) {
+      setError('Please connect to LLM+TTS services first');
+      return;
+    }
+    
     if (!ttsServiceRef.current) {
-      console.warn('TTS service not available');
+      setError('TTS service not available');
       return;
     }
     
@@ -373,17 +303,15 @@ export function useGeminiConversation(
       console.error('TTS error:', err);
       setIsSpeaking(false);
     }
-  }, [settings.voice, ttsStylePrompt]);
+  }, [settings.voice, ttsStylePrompt, connected, ready]);
 
-  // Check service availability
-  const isSTTSupported = OpenAISTTService.isSupported();
+  // Check service availability (移除 STT)
   const isTTSSupported = GeminiTTSService.isAudioSupported();
 
   return {
-    // STT State
-    isListening,
-    currentTranscript,
-    isTranscriptFinal,
+    // Connection State (類似 Live API)
+    connected,
+    ready,
     
     // TTS State
     isSpeaking,
@@ -392,8 +320,8 @@ export function useGeminiConversation(
     isProcessingChat,
     
     // Actions
-    startListening,
-    stopListening,
+    connect,
+    disconnect,
     sendTextMessage,
     speakMessage,
     
@@ -405,7 +333,6 @@ export function useGeminiConversation(
     clearError,
     
     // Service availability
-    isSTTSupported,
     isTTSSupported,
   };
 }

@@ -1,10 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import ControlTray from './ControlTray';
-import TTSControlTray from './TTSControlTray';
 import { TextInput } from './TextInput';
 import { SendButton } from './SendButton';
 import { ConversationModeSelector } from './ConversationModeSelector';
-import { TranscriptionDisplay } from '../conversation-display/TranscriptionDisplay';
 import { useChatManager } from '../../hooks/use-chat-manager';
 import { useConversation } from '../../hooks/use-conversation';
 import { useTranscription } from '../../hooks/use-transcription';
@@ -31,7 +28,6 @@ export const ChatInputArea: React.FC = () => {
     connected: liveConnected, 
     volume, 
     client,
-    ready,
     connectWithResumption,
     disconnect: originalDisconnect
   } = useLiveAPIContext();
@@ -55,14 +51,12 @@ export const ChatInputArea: React.FC = () => {
     setCanSwitchMode
   } = useConversationMode();
   
-  // Gemini STT+TTS conversation
+  // Gemini LLM+TTS conversation (移除 STT 功能)
   const geminiConversation = useGeminiConversation({
     geminiApiKey: process.env.REACT_APP_GEMINI_API_KEY,
-    openaiApiKey: process.env.REACT_APP_OPENAI_API_KEY,
-    sttLanguage: 'zh-TW',
     ttsLanguage: 'zh-TW',
     enableLogging: process.env.NODE_ENV === 'development',
-    enabled: isSTTTTSMode // 新增：只在 STT+TTS 模式下啟用
+    enabled: true // 始終啟用 LLM+TTS 模式
   });
   
   // 追蹤組件掛載/卸載
@@ -75,9 +69,9 @@ export const ChatInputArea: React.FC = () => {
 
   // 禁用模式切換當有活躍連接時
   useEffect(() => {
-    const hasActiveConnection = liveConnected || geminiConversation.isListening || geminiConversation.isProcessingChat;
+    const hasActiveConnection = liveConnected || geminiConversation.connected || geminiConversation.isProcessingChat;
     setCanSwitchMode(!hasActiveConnection);
-  }, [liveConnected, geminiConversation.isListening, geminiConversation.isProcessingChat, setCanSwitchMode]);
+  }, [liveConnected, geminiConversation.connected, geminiConversation.isProcessingChat, setCanSwitchMode]);
 
   // Enhanced connect function that uses session resumption
   const enhancedConnect = useCallback(async () => {
@@ -140,17 +134,11 @@ export const ChatInputArea: React.FC = () => {
     }
   }, [isLiveMode, inputTranscription.status, inputTranscription.currentTranscript]);
 
-  // 監聽 Gemini STT 轉錄結果 (僅 STT+TTS 模式)
-  useEffect(() => {
-    if (isSTTTTSMode && geminiConversation.currentTranscript) {
-      setInputText(geminiConversation.currentTranscript);
-    }
-  }, [isSTTTTSMode, geminiConversation.currentTranscript]);
+  // STT 功能已移除，不再監聽轉錄結果
 
   const handleSendMessage = async () => {
     const finalText = inputText.trim() || 
-      (isLiveMode ? inputTranscription.currentTranscript.trim() : '') ||
-      (isSTTTTSMode ? geminiConversation.currentTranscript.trim() : '');
+      (isLiveMode ? inputTranscription.currentTranscript.trim() : '');
     
     if (!finalText) return;
     if (!activeChatRoom) return;
@@ -167,9 +155,6 @@ export const ChatInputArea: React.FC = () => {
     setInputText('');
   };
 
-  const handleTranscriptEdit = (newTranscript: string) => {
-    setInputText(newTranscript);
-  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -181,29 +166,19 @@ export const ChatInputArea: React.FC = () => {
   // Dynamic send button logic based on mode
   const canSend = (() => {
     const hasText = inputText.trim() || 
-      (isLiveMode ? inputTranscription.currentTranscript.trim() : '') ||
-      (isSTTTTSMode ? geminiConversation.currentTranscript.trim() : '');
+      (isLiveMode ? inputTranscription.currentTranscript.trim() : '');
     
     if (!hasText || !activeChatRoom) return false;
     
     if (isLiveMode) {
       return connected;
     } else if (isSTTTTSMode) {
-      return !geminiConversation.isProcessingChat;
+      return geminiConversation.connected && geminiConversation.ready && !geminiConversation.isProcessingChat;
     }
     
     return false;
   })();
 
-  // Dynamic transcription display logic
-  const hasTranscriptionContent = (() => {
-    if (isLiveMode) {
-      return inputTranscription.currentTranscript.trim().length > 0 || isRecording;
-    } else if (isSTTTTSMode) {
-      return geminiConversation.currentTranscript.trim().length > 0 || geminiConversation.isListening;
-    }
-    return false;
-  })();
 
   return (
     <div className="chat-input-area">
@@ -224,9 +199,24 @@ export const ChatInputArea: React.FC = () => {
         </div>
       )}
 
-      {/* STT+TTS Status Indicators (outside main container) */}
+      {/* LLM+TTS Status Indicators (outside main container) */}
       {isSTTTTSMode && (
         <>
+          {/* Connection status indicators */}
+          {!geminiConversation.connected && (
+            <div className="status-indicator connection-indicator">
+              <span className="material-symbols-outlined">link_off</span>
+              請點擊連接按鈕來啟動 LLM+TTS 服務
+            </div>
+          )}
+          
+          {geminiConversation.connected && !geminiConversation.ready && (
+            <div className="status-indicator connecting-indicator">
+              <span className="material-symbols-outlined">hourglass_empty</span>
+              正在初始化 LLM+TTS 服務...
+            </div>
+          )}
+
           {geminiConversation.isSpeaking && (
             <div className="status-indicator speaking-indicator">
               <span className="material-symbols-outlined">volume_up</span>
@@ -241,11 +231,6 @@ export const ChatInputArea: React.FC = () => {
             </div>
           )}
           
-          {!geminiConversation.isSTTSupported && (
-            <div className="status-indicator warning-message">
-              您的瀏覽器不支援語音識別功能
-            </div>
-          )}
         </>
       )}
       
@@ -326,36 +311,15 @@ export const ChatInputArea: React.FC = () => {
 
             {isSTTTTSMode && (
               <>
-                {/* STT Microphone Button */}
+                {/* LLM+TTS Connection Button */}
                 <button
-                  className={`toolbar-button mic-button ${geminiConversation.isListening ? 'active recording' : ''}`}
-                  onClick={geminiConversation.isListening ? geminiConversation.stopListening : geminiConversation.startListening}
-                  disabled={!geminiConversation.isSTTSupported || geminiConversation.isProcessingChat}
-                  title={geminiConversation.isListening ? "停止語音識別" : "開始語音識別"}
+                  className={`toolbar-button connect-button ${geminiConversation.connected ? 'active' : ''}`}
+                  onClick={geminiConversation.connected ? geminiConversation.disconnect : geminiConversation.connect}
+                  disabled={geminiConversation.isProcessingChat}
+                  title={geminiConversation.connected ? "中斷 LLM+TTS 連接" : "連接 LLM+TTS 服務"}
                 >
                   <span className="material-symbols-outlined">
-                    {geminiConversation.isListening ? 'mic' : 'mic_off'}
-                  </span>
-                </button>
-
-                {/* Disabled placeholder buttons to maintain layout */}
-                <button className="toolbar-button disabled" disabled title="螢幕分享（TTS 模式下不可用）">
-                  <span className="material-symbols-outlined">present_to_all</span>
-                </button>
-                
-                <button className="toolbar-button disabled" disabled title="攝像頭（TTS 模式下不可用）">
-                  <span className="material-symbols-outlined">videocam</span>
-                </button>
-
-                {/* TTS Status Button */}
-                <button
-                  className={`toolbar-button connect-button ${geminiConversation.isListening ? 'active' : ''}`}
-                  onClick={geminiConversation.isListening ? geminiConversation.stopListening : geminiConversation.startListening}
-                  disabled={!geminiConversation.isSTTSupported || geminiConversation.isProcessingChat}
-                  title={geminiConversation.isListening ? "停止" : "開始"}
-                >
-                  <span className="material-symbols-outlined">
-                    {geminiConversation.isListening ? 'pause' : 'play_arrow'}
+                    {geminiConversation.connected ? 'pause' : 'play_arrow'}
                   </span>
                 </button>
               </>
@@ -378,14 +342,15 @@ export const ChatInputArea: React.FC = () => {
                   if (inputTranscription.currentTranscript) return "編輯轉錄文字或直接發送...";
                   return "問我任何問題...";
                 } else if (isSTTTTSMode) {
+                  if (!geminiConversation.connected) return "請先點擊連接按鈕來啟動 LLM+TTS 服務...";
+                  if (!geminiConversation.ready) return "服務初始化中...";
                   if (geminiConversation.isProcessingChat) return "AI 正在處理中...";
-                  if (geminiConversation.currentTranscript) return "編輯轉錄文字或直接發送...";
-                  return "問我任何問題...";
+                  return "輸入訊息並發送，AI 會自動朗讀回覆...";
                 }
                 
                 return "問我任何問題...";
               })()}
-              disabled={!activeChatRoom || (isSTTTTSMode && geminiConversation.isProcessingChat)}
+              disabled={!activeChatRoom || (isSTTTTSMode && (!geminiConversation.connected || !geminiConversation.ready || geminiConversation.isProcessingChat))}
             />
             
             <SendButton
