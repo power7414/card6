@@ -55,6 +55,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   const systemPrompt = generateSystemPrompt(settings.tone);
   const ttsStylePrompt = generateTTSStylePrompt(settings.tone);
 
+  // Live API 整合將在其他地方處理，避免循環依賴
+
   // Update settings and persist to localStorage
   const updateSettings = useCallback((newSettings: Partial<SettingsData>) => {
     setSettings(prevSettings => {
@@ -66,6 +68,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       } catch (error) {
         console.warn('Failed to persist settings to localStorage:', error);
       }
+      
+      // Live API 配置更新將透過 useEffect 在其他地方處理
       
       return updatedSettings;
     });
@@ -83,11 +87,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
   // Log settings changes for debugging
   useEffect(() => {
-    console.log('🎛️ Settings updated:', {
-      settings,
-      systemPrompt: systemPrompt.substring(0, 50) + '...',
-      ttsStylePrompt
-    });
+    // Settings updated silently for performance
   }, [settings, systemPrompt, ttsStylePrompt]);
 
   const contextValue: SettingsContextValue = {

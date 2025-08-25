@@ -109,19 +109,14 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
       ? `${voiceGuidance}\n\n${systemPrompt}`
       : systemPrompt;
       
-    console.log('🎯 [LiveAPI] Enhanced system instruction with voice style:', {
-      voice: settings.voice,
-      tone: settings.tone,
-      stylePrompt: ttsStylePrompt,
-      hasVoiceGuidance: !!voiceGuidance
-    });
+    // Enhanced system instruction generated silently
     
     return enhancedPrompt;
-  }, [systemPrompt, ttsStylePrompt, settings.voice, settings.tone]);
+  }, [systemPrompt, ttsStylePrompt]);
 
   // Update config when system prompt or settings change
   useEffect(() => {
-    console.log('🔄 [LiveAPI] Updating config - systemPrompt and speech settings');
+    // Config updated silently
     setConfig(prevConfig => ({
       ...prevConfig,
       speechConfig: getSpeechConfig(),
@@ -172,7 +167,7 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
   // Trigger configuration update when settings change and Live API is connected
   useEffect(() => {
     if (connected && client) {
-      console.log('🎯 [LiveAPI] Settings changed, triggering configuration update');
+      // Settings changed, updating configuration silently
       updateLiveConfiguration();
     }
   }, [settings.voice, settings.tone, connected, updateLiveConfiguration, client]);

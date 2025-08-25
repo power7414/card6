@@ -394,7 +394,7 @@ export class GeminiTTSService {
     if (voice?.stylePrompt !== undefined) {
       this.defaultConfig.voice.stylePrompt = voice.stylePrompt;
     }
-    this.log('Voice configuration updated');
+    // Voice configuration updated silently
   }
 
   /**

@@ -125,7 +125,7 @@ export function useGeminiConversation(
         voiceName: settings.voice,
         stylePrompt: ttsStylePrompt
       });
-      console.log(`🔄 Updated TTS config - Voice: ${settings.voice}, Style: ${ttsStylePrompt}`);
+      // TTS config updated silently
     }
   }, [settings.voice, ttsStylePrompt]);
 
