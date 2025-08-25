@@ -284,37 +284,14 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       console.log('✅ Live API connection established successfully');
       this.reconnectAttempts = 0; // Reset on successful connection
       
-      // Wait for setup completion before marking as connected
-      // This prevents premature audio data sending
-      return await new Promise<boolean>((resolve, reject) => {
-        let setupCompleted = false;
-        
-        const timeout = setTimeout(() => {
-          if (!setupCompleted) {
-            console.error('❌ Setup timeout after 10 seconds - connection failed');
-            this._status = "disconnected";
-            this._setupComplete = false;
-            this.off("setupcomplete", onSetupComplete);
-            reject(new Error('Setup timeout: Live API did not complete setup within 10 seconds'));
-          }
-        }, 10000); // Increased to 10 second timeout for better reliability
-        
-        // Wait for setupcomplete event
-        const onSetupComplete = () => {
-          if (!setupCompleted) {
-            setupCompleted = true;
-            clearTimeout(timeout);
-            this._status = "connected";
-            this._setupComplete = true;
-            this.setupSessionTimeout();
-            this.off("setupcomplete", onSetupComplete);
-            console.log('✅ Setup 完成，連接建立成功');
-            resolve(true);
-          }
-        };
-        
-        this.once("setupcomplete", onSetupComplete);
-      });
+      // According to official docs, no setupComplete event is needed
+      // Connection is ready immediately after successful connect
+      this._status = "connected";
+      this._setupComplete = true;
+      this.setupSessionTimeout();
+      
+      console.log('✅ Live API 連接完成，可以開始使用');
+      return true;
     } catch (e) {
       console.error("Error connecting to GenAI Live:", e);
       this._status = "disconnected";
@@ -370,7 +347,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     
     if (message.setupComplete) {
       this.log("server.send", "setupComplete");
-      console.log('✅ Setup 完成，連接建立成功');
+      console.log('✅ 收到 setupComplete 訊息（可選）');
       this.emit("setupcomplete");
       return;
     }
