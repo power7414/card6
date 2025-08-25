@@ -340,13 +340,21 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   }
 
   protected onopen() {
+    console.log("✅ Live API WebSocket connection opened");
     this.log("client.open", "Connected");
     this.emit("open");
   }
 
   protected onerror(e: ErrorEvent) {
+    console.log("Live API WebSocket error:", e);
     this.log("server.error", e.message);
     this.emit("error", e);
+    
+    // If error occurs during connection, mark as disconnected
+    if (this._status === "connecting") {
+      this._status = "disconnected";
+      this._setupComplete = false;
+    }
   }
 
   protected onclose(e: CloseEvent) {
@@ -358,7 +366,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   }
 
   protected async onmessage(message: LiveServerMessage) {
-    // console.log('📨 收到伺服器訊息:', Object.keys(message));
+    console.log('📨 收到伺服器訊息:', Object.keys(message), message);
     
     if (message.setupComplete) {
       this.log("server.send", "setupComplete");

@@ -39,6 +39,7 @@ export type UseLiveAPIResults = {
   currentChatRoomId: string | null;
   hasValidSession: (chatRoomId: string) => boolean;
   sessionTimeLeft: number | null;
+  updateLiveConfiguration: () => Promise<void>; // 新增：即時更新配置函數
 };
 
 export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
@@ -50,8 +51,8 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
   }, [options]);
   const audioStreamerRef = useRef<AudioStreamer | null>(null);
   
-  // Get dynamic system prompt from settings
-  const { systemPrompt } = useSettings();
+  // Get dynamic system prompt, voice settings and TTS style prompt from settings
+  const { systemPrompt, settings, ttsStylePrompt } = useSettings();
   
   // Session resumption integration
   const sessionResumption = useSessionResumption({
@@ -68,38 +69,113 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
   const [sessionTimeLeft, setSessionTimeLeft] = useState<number | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Speech config 可以加聲音選項
-  const [model, setModel] = useState<string>("models/gemini-live-2.5-flash-preview");
-  const [config, setConfig] = useState<LiveConnectConfig>({
+  // Speech config 整合前端設定
+  const [model, setModel] = useState<string>("models/gemini-2.0-flash-exp");
+  
+  // 根據前端設定動態生成語音配置
+  const getSpeechConfig = useCallback(() => {
+    return {
+      languageCode: "cmn-CN", // Live API 主要使用語言代碼控制
+      // 注意：Live API 語音控制主要透過 systemInstruction 實現
+      // 不同於 TTS API 的 voiceConfig
+    };
+  }, []);
+
+  const [config, setConfig] = useState<LiveConnectConfig>(() => ({
     responseModalities: [Modality.AUDIO],
     outputAudioTranscription: {},
     inputAudioTranscription: {},
-    speechConfig: {
-      languageCode: "cmn-CN"
-    },
+    speechConfig: getSpeechConfig(),
     systemInstruction: {
       parts: [{
-        text: systemPrompt
+        text: systemPrompt // 初始值，會被 useEffect 更新
       }]
     },
     // 啟用 Session Resumption 功能
     sessionResumption: {}
-  });
+  }));
   const [connected, setConnected] = useState(false);
   const [ready, setReady] = useState(false);
   const [volume, setVolume] = useState(0);
 
-  // Update config when system prompt changes
+  // Generate enhanced system instruction with voice style
+  const getEnhancedSystemInstruction = useCallback(() => {
+    // 將語音風格整合到系統提示中（Live API 主要透過文字指導控制語音）
+    const voiceGuidance = ttsStylePrompt 
+      ? `重要：在語音回應時，請${ttsStylePrompt}。` 
+      : '';
+    
+    const enhancedPrompt = voiceGuidance 
+      ? `${voiceGuidance}\n\n${systemPrompt}`
+      : systemPrompt;
+      
+    console.log('🎯 [LiveAPI] Enhanced system instruction with voice style:', {
+      voice: settings.voice,
+      tone: settings.tone,
+      stylePrompt: ttsStylePrompt,
+      hasVoiceGuidance: !!voiceGuidance
+    });
+    
+    return enhancedPrompt;
+  }, [systemPrompt, ttsStylePrompt, settings.voice, settings.tone]);
+
+  // Update config when system prompt or settings change
   useEffect(() => {
+    console.log('🔄 [LiveAPI] Updating config - systemPrompt and speech settings');
     setConfig(prevConfig => ({
       ...prevConfig,
+      speechConfig: getSpeechConfig(),
       systemInstruction: {
         parts: [{
-          text: systemPrompt
+          text: getEnhancedSystemInstruction()
         }]
       }
     }));
-  }, [systemPrompt]);
+  }, [systemPrompt, getSpeechConfig, getEnhancedSystemInstruction]);
+
+  // Function to update live configuration during active session
+  const updateLiveConfiguration = useCallback(async () => {
+    if (!connected || !client) {
+      console.log('🔄 [LiveAPI] Not connected, skipping live config update');
+      return;
+    }
+
+    try {
+      console.log('🔄 [LiveAPI] Updating live session configuration...');
+      const updatedConfig = {
+        ...config,
+        systemInstruction: {
+          parts: [{
+            text: getEnhancedSystemInstruction()
+          }]
+        }
+      };
+      
+      // Note: Live API 的即時配置更新可能需要重新連接
+      // 這裡我們可以考慮發送一個配置更新訊息或重新連接
+      console.log('📋 [LiveAPI] New configuration prepared:', {
+        hasSystemInstruction: !!updatedConfig.systemInstruction,
+        voiceSettings: {
+          voice: settings.voice,
+          tone: settings.tone
+        }
+      });
+      
+      // 更新本地配置
+      setConfig(updatedConfig);
+      
+    } catch (error) {
+      console.error('❌ [LiveAPI] Failed to update live configuration:', error);
+    }
+  }, [connected, client, config, getEnhancedSystemInstruction, settings]);
+
+  // Trigger configuration update when settings change and Live API is connected
+  useEffect(() => {
+    if (connected && client) {
+      console.log('🎯 [LiveAPI] Settings changed, triggering configuration update');
+      updateLiveConfiguration();
+    }
+  }, [settings.voice, settings.tone, connected, updateLiveConfiguration, client]);
 
   // register audio for streaming server -> speakers
   useEffect(() => {
@@ -391,5 +467,6 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
     currentChatRoomId,
     hasValidSession: (chatRoomId: string) => sessionResumptionRef.current.hasValidSession(chatRoomId),
     sessionTimeLeft,
+    updateLiveConfiguration, // 新增：即時更新配置函數
   };
 }
