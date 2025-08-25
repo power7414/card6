@@ -90,6 +90,7 @@ export function useGeminiConversation(
       if (currentConfig.geminiApiKey) {
         chatServiceRef.current = new GeminiChatService({
           apiKey: currentConfig.geminiApiKey,
+          model: settings.models.llm, // 使用選擇的 LLM 模型
           enableLogging: currentConfig.enableLogging
         });
       }
@@ -111,6 +112,7 @@ export function useGeminiConversation(
       if (currentConfig.geminiApiKey) {
         ttsServiceRef.current = new GeminiTTSService({
           apiKey: currentConfig.geminiApiKey,
+          model: settings.models.tts, // 使用選擇的 TTS 模型
           enableLogging: currentConfig.enableLogging,
           voice: {
             voiceName: settings.voice, // Use voice from settings
@@ -123,7 +125,7 @@ export function useGeminiConversation(
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initialize services');
     }
-  }, [currentConfig, settings, ttsStylePrompt]);
+  }, [currentConfig, settings, settings.models.llm, settings.models.tts, ttsStylePrompt]);
 
   // Update TTS service configuration when settings change
   useEffect(() => {

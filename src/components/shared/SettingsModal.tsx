@@ -22,9 +22,38 @@ export const VOICE_OPTIONS = [
 export type ToneValue = typeof TONE_OPTIONS[number]['value'];
 export type VoiceValue = typeof VOICE_OPTIONS[number]['value'];
 
+// Live API 模型選項
+export const LIVE_API_MODEL_OPTIONS = [
+  { value: 'gemini-live-2.5-flash-preview', label: 'Gemini Live 2.5 Flash', description: '標準語音對話模型' },
+  { value: 'gemini-2.5-flash-preview-native-audio-dialog', label: 'Native Audio Dialog', description: '原生音頻對話，支援更豐富的語音特性' },
+  { value: 'gemini-2.5-flash-exp-native-audio-thinking-dialog', label: 'Native Audio Thinking', description: '包含思考過程的原生音頻模型' }
+] as const;
+
+// LLM 模型選項 (用於 STT+TTS 模式的聊天)
+export const LLM_MODEL_OPTIONS = [
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', description: '快速回應，適合一般對話' },
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', description: '輕量版本，更快回應' },
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', description: '專業版本，更強推理能力' }
+] as const;
+
+// TTS 模型選項
+export const TTS_MODEL_OPTIONS = [
+  { value: 'gemini-2.5-flash-preview-tts', label: 'Flash TTS', description: '快速語音合成' },
+  { value: 'gemini-2.5-pro-preview-tts', label: 'Pro TTS', description: '高品質語音合成' }
+] as const;
+
+export type LiveApiModelValue = typeof LIVE_API_MODEL_OPTIONS[number]['value'];
+export type LlmModelValue = typeof LLM_MODEL_OPTIONS[number]['value'];
+export type TtsModelValue = typeof TTS_MODEL_OPTIONS[number]['value'];
+
 export interface SettingsData {
   tone: ToneValue;
   voice: VoiceValue;
+  models: {
+    liveApi: LiveApiModelValue;
+    llm: LlmModelValue;
+    tts: TtsModelValue;
+  };
 }
 
 interface SettingsModalProps {
@@ -42,6 +71,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [tone, setTone] = useState<ToneValue>(currentSettings.tone);
   const [voice, setVoice] = useState<VoiceValue>(currentSettings.voice);
+  const [liveApiModel, setLiveApiModel] = useState<LiveApiModelValue>(currentSettings.models.liveApi);
+  const [llmModel, setLlmModel] = useState<LlmModelValue>(currentSettings.models.llm);
+  const [ttsModel, setTtsModel] = useState<TtsModelValue>(currentSettings.models.tts);
   const [isPlayingPreview, setIsPlayingPreview] = useState<VoiceValue | null>(null);
 
   // 重設本地狀態當 modal 開啟時
@@ -49,17 +81,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (isOpen) {
       setTone(currentSettings.tone);
       setVoice(currentSettings.voice);
+      setLiveApiModel(currentSettings.models.liveApi);
+      setLlmModel(currentSettings.models.llm);
+      setTtsModel(currentSettings.models.tts);
     }
   }, [isOpen, currentSettings]);
 
   const handleSave = useCallback(() => {
-    onSave({ tone, voice });
+    onSave({ 
+      tone, 
+      voice,
+      models: {
+        liveApi: liveApiModel,
+        llm: llmModel,
+        tts: ttsModel
+      }
+    });
     onClose();
-  }, [tone, voice, onSave, onClose]);
+  }, [tone, voice, liveApiModel, llmModel, ttsModel, onSave, onClose]);
 
   const handleCancel = useCallback(() => {
     setTone(currentSettings.tone);
     setVoice(currentSettings.voice);
+    setLiveApiModel(currentSettings.models.liveApi);
+    setLlmModel(currentSettings.models.llm);
+    setTtsModel(currentSettings.models.tts);
     onClose();
   }, [currentSettings, onClose]);
 
@@ -209,6 +255,83 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* 模型設定 */}
+          <div className="settings-section">
+            <h3>模型設定</h3>
+            <p className="settings-section__description">
+              選擇不同對話模式下使用的 AI 模型
+            </p>
+            
+            {/* Live API 模型 */}
+            <div className="model-subsection">
+              <h4>Live API 模型</h4>
+              <p className="model-subsection__description">用於即時語音對話</p>
+              <div className="radio-group">
+                {LIVE_API_MODEL_OPTIONS.map((option) => (
+                  <label key={option.value} className="radio-option model-option">
+                    <input
+                      type="radio"
+                      name="liveApiModel"
+                      value={option.value}
+                      checked={liveApiModel === option.value}
+                      onChange={() => setLiveApiModel(option.value)}
+                    />
+                    <div className="radio-content">
+                      <span className="radio-label">{option.label}</span>
+                      <span className="radio-description">{option.description}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* LLM 模型 */}
+            <div className="model-subsection">
+              <h4>聊天模型 (LLM)</h4>
+              <p className="model-subsection__description">用於 STT+TTS 模式的文字對話</p>
+              <div className="radio-group">
+                {LLM_MODEL_OPTIONS.map((option) => (
+                  <label key={option.value} className="radio-option model-option">
+                    <input
+                      type="radio"
+                      name="llmModel"
+                      value={option.value}
+                      checked={llmModel === option.value}
+                      onChange={() => setLlmModel(option.value)}
+                    />
+                    <div className="radio-content">
+                      <span className="radio-label">{option.label}</span>
+                      <span className="radio-description">{option.description}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* TTS 模型 */}
+            <div className="model-subsection">
+              <h4>語音合成模型 (TTS)</h4>
+              <p className="model-subsection__description">用於 STT+TTS 模式的語音合成</p>
+              <div className="radio-group">
+                {TTS_MODEL_OPTIONS.map((option) => (
+                  <label key={option.value} className="radio-option model-option">
+                    <input
+                      type="radio"
+                      name="ttsModel"
+                      value={option.value}
+                      checked={ttsModel === option.value}
+                      onChange={() => setTtsModel(option.value)}
+                    />
+                    <div className="radio-content">
+                      <span className="radio-label">{option.label}</span>
+                      <span className="radio-description">{option.description}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         </div>

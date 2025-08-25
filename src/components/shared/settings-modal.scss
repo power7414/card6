@@ -344,3 +344,58 @@
     }
   }
 }
+
+// 模型選擇樣式
+.model-subsection {
+  margin-bottom: $spacing-lg;
+  
+  h4 {
+    margin: 0 0 $spacing-xs 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  
+  &__description {
+    margin: 0 0 $spacing-md 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.3;
+  }
+  
+  .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+}
+
+.model-option {
+  padding: $spacing-md;
+  
+  .radio-content {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    flex: 1;
+  }
+  
+  .radio-label {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  
+  .radio-description {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.3;
+  }
+  
+  input[type="radio"]:checked ~ .radio-content .radio-label {
+    color: var(--accent-color);
+  }
+  
+  input[type="radio"]:checked ~ .radio-content .radio-description {
+    color: var(--text-primary);
+  }
+}

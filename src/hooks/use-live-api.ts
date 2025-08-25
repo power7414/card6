@@ -70,7 +70,12 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Speech config 整合前端設定
-  const [model, setModel] = useState<string>("gemini-live-2.5-flash-preview");
+  const [model, setModel] = useState<string>(settings.models.liveApi);
+  
+  // 當設定中的模型改變時更新
+  useEffect(() => {
+    setModel(settings.models.liveApi);
+  }, [settings.models.liveApi]);
   
   // 根據前端設定動態生成語音配置
   const getSpeechConfig = useCallback(() => {

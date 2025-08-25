@@ -20,7 +20,12 @@ const SettingsContext = createContext<SettingsContextValue | undefined>(undefine
 // Default settings
 const DEFAULT_SETTINGS: SettingsData = {
   tone: 'lively' as ToneValue,
-  voice: 'Kore' as VoiceValue
+  voice: 'Kore' as VoiceValue,
+  models: {
+    liveApi: 'gemini-live-2.5-flash-preview', // 標準 Live API 模型
+    llm: 'gemini-2.5-flash', // 快速回應的 LLM
+    tts: 'gemini-2.5-flash-preview-tts' // 快速 TTS
+  }
 };
 
 // Storage key for persisting settings
@@ -41,7 +46,13 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         if (parsed.tone && parsed.voice) {
           return {
             tone: parsed.tone as ToneValue,
-            voice: parsed.voice as VoiceValue
+            voice: parsed.voice as VoiceValue,
+            // 向後相容：如果沒有模型設定，使用預設值
+            models: parsed.models ? {
+              liveApi: parsed.models.liveApi || DEFAULT_SETTINGS.models.liveApi,
+              llm: parsed.models.llm || DEFAULT_SETTINGS.models.llm,
+              tts: parsed.models.tts || DEFAULT_SETTINGS.models.tts
+            } : DEFAULT_SETTINGS.models
           };
         }
       }
