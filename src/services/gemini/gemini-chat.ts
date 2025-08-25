@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { Message } from "../../types/chat";
 
 /**
  * Configuration options for the GeminiChatService class.
@@ -53,8 +54,12 @@ export class GeminiChatService {
     try {
       const result = await this.client.models.generateContent({
         model: "gemini-1.5-flash",
-        contents: [{ parts: [{ text: prompt }] }]
+        contents: [{ 
+          role: 'user',
+          parts: [{ text: prompt }] 
+        }]
       });
+      
       const response = result.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
 
       // Store conversation history
@@ -75,17 +80,87 @@ export class GeminiChatService {
   /**
    * Generates a response with conversation context using chat session.
    * @param message - The input message for generating the response.
+   * @param chatHistory - Previous messages from the current chat room for context
    * @returns A Promise that resolves to the generated response text.
    */
-  public async chat(message: string): Promise<string> {
+  public async chat(message: string, chatHistory: Message[] = []): Promise<string> {
     try {
-      // For now, use simple generateResponse until we figure out chat sessions
-      // TODO: Implement proper chat sessions when API is understood
-      return this.generateResponse(message);
+      return this.generateResponseWithHistory(message, chatHistory);
     } catch (error) {
       this.log(`Error in chat: ${error}`);
       throw new Error(`Failed to generate chat response: ${error}`);
     }
+  }
+
+  /**
+   * Generates a response with conversation context from chat history.
+   * @param message - The input message for generating the response.
+   * @param chatHistory - Previous messages from the current chat room
+   * @returns A Promise that resolves to the generated response text.
+   */
+  public async generateResponseWithHistory(message: string, chatHistory: Message[] = []): Promise<string> {
+    try {
+      this.log(`Generating response with ${chatHistory.length} previous messages`);
+
+      // Convert chat history to Gemini API format
+      const contents = this.buildConversationContents(chatHistory, message);
+
+      const result = await this.client.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: contents
+      });
+      
+      const response = result.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
+
+      // Update internal conversation history
+      this.conversationHistory.push(
+        { role: 'user', parts: message },
+        { role: 'model', parts: response }
+      );
+
+      this.log([
+        `User Prompt: ${message}`,
+        `Generated Response: ${response}`,
+        `Total history items: ${this.conversationHistory.length}`
+      ]);
+
+      return response;
+    } catch (error) {
+      this.log(`Error generating response with history: ${error}`);
+      throw new Error(`Failed to generate response: ${error}`);
+    }
+  }
+
+  /**
+   * Builds conversation contents from chat history for Gemini API.
+   * @param chatHistory - Previous messages from the chat room
+   * @param currentMessage - The current user message
+   * @returns Array of contents for Gemini API
+   */
+  private buildConversationContents(chatHistory: Message[], currentMessage: string) {
+    const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+
+    // Add chat history (limit to last 20 messages for context window management)
+    const recentHistory = chatHistory.slice(-20);
+    
+    for (const msg of recentHistory) {
+      if (msg.type === 'user' || msg.type === 'assistant') {
+        contents.push({
+          role: msg.type === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }]
+        });
+      }
+    }
+
+    // Add current message
+    contents.push({
+      role: 'user',
+      parts: [{ text: currentMessage }]
+    });
+
+    this.log(`Built conversation with ${contents.length} messages (${recentHistory.length} from history + 1 current)`);
+    
+    return contents;
   }
 
   /**

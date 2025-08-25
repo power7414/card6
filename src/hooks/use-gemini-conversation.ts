@@ -5,20 +5,25 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GeminiChatService } from '../services/gemini/gemini-chat';
-import { GeminiSTTService, STTResult, STTEvents } from '../services/gemini/gemini-stt';
+import { OpenAISTTService, STTResult, STTEvents } from '../services/openai/openai-stt';
 import { GeminiTTSService } from '../services/gemini/gemini-tts';
 import { useChatManager } from './use-chat-manager';
 import { createUserMessage, createAssistantMessage } from '../utils/message-factory';
+import { useSettings } from '../contexts/SettingsContext';
 
 export interface UseGeminiConversationConfig {
-  /** Gemini API key */
-  apiKey?: string;
+  /** Gemini API key for Chat and TTS */
+  geminiApiKey?: string;
+  /** OpenAI API key for STT */
+  openaiApiKey?: string;
   /** Language for STT */
   sttLanguage?: string;
   /** Language for TTS */
   ttsLanguage?: string;
   /** Enable logging */
   enableLogging?: boolean;
+  /** Disable TTS temporarily (for testing or quota issues) */
+  disableTTS?: boolean;
 }
 
 export interface UseGeminiConversationResult {
@@ -54,11 +59,12 @@ export interface UseGeminiConversationResult {
 export function useGeminiConversation(
   config: UseGeminiConversationConfig = {}
 ): UseGeminiConversationResult {
-  const { activeChatRoom, addMessage } = useChatManager();
+  const { activeChatRoom, addMessage, chatRooms } = useChatManager();
+  const { settings, ttsStylePrompt } = useSettings();
   
   // Services
   const chatServiceRef = useRef<GeminiChatService | null>(null);
-  const sttServiceRef = useRef<GeminiSTTService | null>(null);
+  const sttServiceRef = useRef<OpenAISTTService | null>(null);
   const ttsServiceRef = useRef<GeminiTTSService | null>(null);
   
   // State
@@ -74,37 +80,34 @@ export function useGeminiConversation(
   useEffect(() => {
     try {
       // Initialize Chat Service
-      if (currentConfig.apiKey) {
+      if (currentConfig.geminiApiKey) {
         chatServiceRef.current = new GeminiChatService({
-          apiKey: currentConfig.apiKey,
+          apiKey: currentConfig.geminiApiKey,
           enableLogging: currentConfig.enableLogging
         });
       }
       
-      // Initialize STT Service
-      if (currentConfig.apiKey) {
-        sttServiceRef.current = new GeminiSTTService({
-          apiKey: currentConfig.apiKey,
-          audioFormat: 'audio/wav',
-          segmentDuration: 3, // 3-second segments for near real-time
+      // Initialize OpenAI STT Service
+      if (currentConfig.openaiApiKey) {
+        sttServiceRef.current = new OpenAISTTService({
+          apiKey: currentConfig.openaiApiKey,
+          audioFormat: 'audio/webm',
+          segmentDuration: 5, // 5-second segments for OpenAI Whisper
           sampleRate: 16000,
           enableLogging: currentConfig.enableLogging,
-          transcriptionPrompt: currentConfig.sttLanguage === 'en-US' ?
-            'Please transcribe this English audio to text.' :
-            'Please transcribe this Chinese audio to text.'
+          language: currentConfig.sttLanguage === 'en-US' ? 'en' : 'zh',
+          model: 'whisper-1'
         });
       }
       
       // Initialize TTS Service
-      if (currentConfig.apiKey) {
+      if (currentConfig.geminiApiKey) {
         ttsServiceRef.current = new GeminiTTSService({
-          apiKey: currentConfig.apiKey,
+          apiKey: currentConfig.geminiApiKey,
           enableLogging: currentConfig.enableLogging,
           voice: {
-            voiceName: 'Kore', // Default voice
-            stylePrompt: currentConfig.ttsLanguage === 'en-US' ? 
-              'Speak naturally in American English' : 
-              'Speak naturally in Traditional Chinese'
+            voiceName: settings.voice, // Use voice from settings
+            stylePrompt: ttsStylePrompt // Use tone-based style prompt
           }
         });
       }
@@ -113,7 +116,18 @@ export function useGeminiConversation(
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initialize services');
     }
-  }, [currentConfig]);
+  }, [currentConfig, settings, ttsStylePrompt]);
+
+  // Update TTS service configuration when settings change
+  useEffect(() => {
+    if (ttsServiceRef.current) {
+      ttsServiceRef.current.updateVoiceConfig({
+        voiceName: settings.voice,
+        stylePrompt: ttsStylePrompt
+      });
+      console.log(`🔄 Updated TTS config - Voice: ${settings.voice}, Style: ${ttsStylePrompt}`);
+    }
+  }, [settings.voice, ttsStylePrompt]);
 
   const updateConfig = useCallback((newConfig: Partial<UseGeminiConversationConfig>) => {
     setCurrentConfig(prev => ({ ...prev, ...newConfig }));
@@ -157,11 +171,42 @@ export function useGeminiConversation(
     },
     onSegmentStart: (segmentIndex: number) => {
       // Visual feedback for segment processing
-      console.log(`[STT] Processing segment ${segmentIndex}`);
+      if (currentConfig.enableLogging) {
+        console.log(`[STT] Processing segment ${segmentIndex}`);
+      }
     },
     onSegmentEnd: (segmentIndex: number) => {
       // Visual feedback for segment completion
-      console.log(`[STT] Completed segment ${segmentIndex}`);
+      if (currentConfig.enableLogging) {
+        console.log(`[STT] Completed segment ${segmentIndex}`);
+      }
+    },
+    // VAD Events
+    onVADSpeechStart: () => {
+      if (currentConfig.enableLogging) {
+        console.log('[VAD] Speech detected - starting recording');
+      }
+      setIsListening(true);
+    },
+    onVADSpeechEnd: () => {
+      if (currentConfig.enableLogging) {
+        console.log('[VAD] Speech ended - processing audio');
+      }
+    },
+    onVADVolumeChange: (volume: number) => {
+      // Optional: Can be used for visual volume indicators
+      if (currentConfig.enableLogging && volume > 0.1) {
+        console.log(`[VAD] Volume level: ${(volume * 100).toFixed(1)}%`);
+      }
+    },
+    // Streaming Events
+    onStreamingResult: (partialResult: string) => {
+      if (currentConfig.enableLogging) {
+        console.log(`[Streaming] Partial result: "${partialResult}"`);
+      }
+      // Update current transcript with streaming result
+      setCurrentTranscript(partialResult);
+      setIsTranscriptFinal(false);
     }
   };
 
@@ -198,30 +243,83 @@ export function useGeminiConversation(
       const userMessage = createUserMessage(message.trim());
       await addMessage(activeChatRoom, userMessage);
 
-      // Get AI response
-      const response = await chatServiceRef.current.chat(message);
+      // Get chat history for context (including the message we just added)
+      const currentChatRoom = chatRooms.find(room => room.id === activeChatRoom);
+      const chatHistory = currentChatRoom?.messages || [];
       
-      // Add AI response to chat
-      const assistantMessage = createAssistantMessage(response);
-      await addMessage(activeChatRoom, assistantMessage);
+      // Log for debugging
+      if (currentConfig.enableLogging) {
+        console.log(`[GeminiConversation] Chat history contains ${chatHistory.length} messages`);
+        console.log(`[GeminiConversation] Last 3 messages:`, chatHistory.slice(-3).map(m => ({
+          type: m.type,
+          content: m.content.substring(0, 50) + '...'
+        })));
+      }
+      
+      // Get AI response with chat history context
+      const response = await chatServiceRef.current.chat(message, chatHistory);
+      
+      // Store response but don't add to chat yet - wait for TTS to complete
+      let assistantMessage: any = null;
 
-      // Auto-speak the response if TTS is available
-      if (ttsServiceRef.current) {
+      // Auto-speak the response if TTS is available and not disabled
+      if (ttsServiceRef.current && !currentConfig.disableTTS) {
         try {
+          if (currentConfig.enableLogging) {
+            console.log('[GeminiConversation] Starting TTS for response:', response.substring(0, 50) + '...');
+            console.log('[GeminiConversation] TTS service available:', !!ttsServiceRef.current);
+          }
+
+          // Use callbacks for more reliable state management
           await ttsServiceRef.current.speakText({
             text: response,
             voice: {
-              voiceName: 'Kore',
-              stylePrompt: currentConfig.ttsLanguage === 'en-US' ? 
-                'Speak naturally in American English' : 
-                'Speak naturally in Traditional Chinese'
+              voiceName: settings.voice,
+              stylePrompt: ttsStylePrompt
+            },
+            onStart: () => {
+              if (currentConfig.enableLogging) {
+                console.log('[GeminiConversation] TTS playback started');
+              }
+              setIsSpeaking(true);
+            },
+            onEnd: () => {
+              if (currentConfig.enableLogging) {
+                console.log('[GeminiConversation] TTS playback ended');
+              }
+              setIsSpeaking(false);
+            },
+            onError: (error: string) => {
+              console.error('[GeminiConversation] TTS playback error:', error);
+              setIsSpeaking(false);
             }
           });
-          setIsSpeaking(true);
-          // Note: TTS will set isSpeaking to false when complete
+          
+          // TTS completed successfully - now add the message to chat
+          assistantMessage = createAssistantMessage(response);
+          await addMessage(activeChatRoom, assistantMessage);
+          
         } catch (ttsErr) {
-          console.error('TTS error:', ttsErr);
+          console.error('[GeminiConversation] TTS error:', ttsErr);
+          console.error('[GeminiConversation] TTS error details:', {
+            error: ttsErr,
+            ttsServiceAvailable: !!ttsServiceRef.current,
+            geminiApiKey: !!currentConfig.geminiApiKey,
+            responseLength: response.length
+          });
+          setIsSpeaking(false);
+          
+          // Even if TTS fails, still show the text message
+          assistantMessage = createAssistantMessage(response);
+          await addMessage(activeChatRoom, assistantMessage);
         }
+      } else {
+        // No TTS available or TTS disabled - add message immediately
+        if (currentConfig.enableLogging) {
+          console.log('[GeminiConversation] TTS skipped (disabled or not available)');
+        }
+        assistantMessage = createAssistantMessage(response);
+        await addMessage(activeChatRoom, assistantMessage);
       }
 
     } catch (err) {
@@ -236,36 +334,40 @@ export function useGeminiConversation(
       setCurrentTranscript('');
       setIsTranscriptFinal(false);
     }
-  }, [activeChatRoom, addMessage, clearError]);
+  }, [activeChatRoom, addMessage, chatRooms, clearError, currentConfig.disableTTS, currentConfig.enableLogging, currentConfig.geminiApiKey, settings.voice, ttsStylePrompt]);
 
   const speakMessage = useCallback(async (message: string) => {
     if (!ttsServiceRef.current) {
       console.warn('TTS service not available');
       return;
     }
-
-    setIsSpeaking(true);
     
     try {
       await ttsServiceRef.current.speakText({
         text: message,
         voice: {
-          voiceName: 'Kore',
-          stylePrompt: currentConfig.ttsLanguage === 'en-US' ? 
-            'Speak naturally in American English' : 
-            'Speak naturally in Traditional Chinese'
+          voiceName: settings.voice,
+          stylePrompt: ttsStylePrompt
+        },
+        onStart: () => {
+          setIsSpeaking(true);
+        },
+        onEnd: () => {
+          setIsSpeaking(false);
+        },
+        onError: (error: string) => {
+          console.error('TTS playback error:', error);
+          setIsSpeaking(false);
         }
       });
     } catch (err) {
       console.error('TTS error:', err);
-      // Don't set error for TTS failures as they're not critical
-    } finally {
       setIsSpeaking(false);
     }
-  }, [currentConfig]);
+  }, [settings.voice, ttsStylePrompt]);
 
   // Check service availability
-  const isSTTSupported = GeminiSTTService.isSupported();
+  const isSTTSupported = OpenAISTTService.isSupported();
   const isTTSSupported = GeminiTTSService.isAudioSupported();
 
   return {

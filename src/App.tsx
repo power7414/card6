@@ -10,6 +10,8 @@ import { useChatManager } from './hooks/use-chat-manager';
 import { useConversationEvents } from './hooks/use-conversation-events';
 import { useTranscriptionIntegration } from './hooks/use-transcription';
 import { initializeStorage } from './lib/indexeddb';
+import { SettingsModal, SettingsData, ToneValue, VoiceValue } from './components/shared/SettingsModal';
+import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import './App.scss';
 
 // Import and enable session debugging
@@ -57,6 +59,10 @@ function AppContent() {
   // 初始化轉錄整合
   useTranscriptionIntegration();
   
+  // 設定 modal 狀態和設定管理
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+  const { settings: currentSettings, updateSettings } = useSettings();
+  
   // console.log('✅ AppContent 事件處理器初始化完成');
 
   // 移除自動創建聊天室功能 - 讓用戶自行決定何時創建
@@ -67,9 +73,18 @@ function AppContent() {
   // }, [chatRooms.length, createNewChatRoom, error]);
 
   const handleSettings = React.useCallback(() => {
-    // TODO: 實現設定對話框
-    console.log('打開設定');
+    setIsSettingsOpen(true);
   }, []);
+
+  const handleCloseSettings = React.useCallback(() => {
+    setIsSettingsOpen(false);
+  }, []);
+
+  const handleSaveSettings = React.useCallback((newSettings: SettingsData) => {
+    console.log('儲存設定:', newSettings);
+    updateSettings(newSettings);
+    setIsSettingsOpen(false);
+  }, [updateSettings]);
 
   const handleHelp = React.useCallback(() => {
     // TODO: 實現幫助對話框
@@ -107,6 +122,14 @@ function AppContent() {
           </div>
         </TwoColumnLayout>
       </ErrorBoundary>
+      
+      {/* 設定 Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={handleCloseSettings}
+        onSave={handleSaveSettings}
+        currentSettings={currentSettings}
+      />
     </div>
   );
 }
@@ -161,9 +184,11 @@ function App() {
   }
 
   return (
-    <LiveAPIProvider options={LIVE_API_OPTIONS}>
-      <MemoizedAppContent />
-    </LiveAPIProvider>
+    <SettingsProvider>
+      <LiveAPIProvider options={LIVE_API_OPTIONS}>
+        <MemoizedAppContent />
+      </LiveAPIProvider>
+    </SettingsProvider>
   );
 }
 

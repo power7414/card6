@@ -257,17 +257,20 @@ export class GeminiSTTService {
       // Call Gemini Audio API
       const result = await this.client.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: [
-          { 
-            text: this.config.transcriptionPrompt 
-          },
-          {
-            inlineData: {
-              mimeType: this.config.audioFormat,
-              data: base64Audio,
+        contents: [{
+          role: 'user',
+          parts: [
+            { 
+              text: this.config.transcriptionPrompt 
             },
-          },
-        ],
+            {
+              inlineData: {
+                mimeType: this.config.audioFormat,
+                data: base64Audio,
+              },
+            },
+          ]
+        }]
       });
 
       const transcript = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';

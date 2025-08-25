@@ -22,6 +22,7 @@ import { audioContext } from "../lib/utils";
 import VolMeterWorket from "../lib/worklets/vol-meter";
 import { LiveConnectConfig, Modality } from "@google/genai";
 import { useSessionResumption } from "./use-session-resumption";
+import { useSettings } from "../contexts/SettingsContext";
 
 export type UseLiveAPIResults = {
   client: GenAILiveClient;
@@ -49,6 +50,9 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
   }, [options]);
   const audioStreamerRef = useRef<AudioStreamer | null>(null);
   
+  // Get dynamic system prompt from settings
+  const { systemPrompt } = useSettings();
+  
   // Session resumption integration
   const sessionResumption = useSessionResumption({
     enableLogging: true  // 啟用 logging 以便除錯
@@ -75,14 +79,7 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
     },
     systemInstruction: {
       parts: [{
-        text: `你很搞笑，盡量語氣活潑。你是一個友善且樂於助人的 AI 助手。請用繁體中文回應。
-        
-請遵循以下指示：
-- 保持對話友善和專業
-- 提供清晰、準確的資訊
-- 如果不確定某個問題的答案，請誠實說明
-- 保持回應簡潔且相關
-- 使用台灣慣用的繁體中文用詞`
+        text: systemPrompt
       }]
     },
     // 啟用 Session Resumption 功能
@@ -91,6 +88,18 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
   const [connected, setConnected] = useState(false);
   const [ready, setReady] = useState(false);
   const [volume, setVolume] = useState(0);
+
+  // Update config when system prompt changes
+  useEffect(() => {
+    setConfig(prevConfig => ({
+      ...prevConfig,
+      systemInstruction: {
+        parts: [{
+          text: systemPrompt
+        }]
+      }
+    }));
+  }, [systemPrompt]);
 
   // register audio for streaming server -> speakers
   useEffect(() => {

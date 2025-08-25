@@ -43,6 +43,10 @@ export interface TTSOptions {
     /** Custom voice style prompt */
     stylePrompt?: string;
   };
+  /** Optional callbacks for playback events */
+  onStart?: () => void;
+  onEnd?: () => void;
+  onError?: (error: string) => void;
 }
 
 /**
@@ -86,10 +90,14 @@ export class GeminiTTSService {
   async textToSpeech(options: TTSOptions): Promise<Blob> {
     try {
       this.log(`Converting text to speech: "${options.text.substring(0, 50)}..."`);
+      this.log(`TTS API Key available: ${!!this.client}`);
+      this.log(`TTS Model: ${this.defaultConfig.model}`);
 
       // Merge options with defaults
       const voiceName = options.voice?.voiceName ?? this.defaultConfig.voice.voiceName;
       const stylePrompt = options.voice?.stylePrompt ?? this.defaultConfig.voice.stylePrompt;
+      
+      this.log(`TTS Voice: ${voiceName}, Style: ${stylePrompt}`);
 
       // Prepare the text with style prompt if provided
       const textContent = stylePrompt 
@@ -105,17 +113,20 @@ export class GeminiTTSService {
       // Call Gemini TTS API
       const result = await this.client.models.generateContent({
         model: this.defaultConfig.model,
-        contents: [{ parts: [{ text: textContent }] }],
+        contents: [{ 
+          role: 'user',
+          parts: [{ text: textContent }] 
+        }],
         config: {
           responseModalities: ['AUDIO'],
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: {
-                voiceName: voiceName,
-              },
-            },
-          },
-        },
+                voiceName: voiceName
+              }
+            }
+          }
+        }
       });
 
       // Extract audio data from response
@@ -140,29 +151,150 @@ export class GeminiTTSService {
   /**
    * Converts text to speech and plays it immediately.
    * @param options - Options for text-to-speech conversion
-   * @returns Promise that resolves when audio starts playing
+   * @returns Promise that resolves when audio playback completes
    */
   async speakText(options: TTSOptions): Promise<HTMLAudioElement> {
     try {
+      this.log(`Starting TTS playback for: "${options.text.substring(0, 30)}..."`);
+      
       const audioBlob = await this.textToSpeech(options);
-      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      // Create proper WAV blob with header for better compatibility
+      const wavBlob = await this.addWavHeader(audioBlob);
+      const audioUrl = URL.createObjectURL(wavBlob);
       
       const audio = new Audio(audioUrl);
       
-      // Clean up object URL when audio ends
-      audio.addEventListener('ended', () => {
-        URL.revokeObjectURL(audioUrl);
+      // Set audio properties for better playback
+      audio.volume = 1.0;
+      audio.preload = 'auto';
+      
+      return new Promise((resolve, reject) => {
+        // Clean up when audio ends or fails
+        const cleanup = () => {
+          URL.revokeObjectURL(audioUrl);
+          audio.removeEventListener('ended', onEnded);
+          audio.removeEventListener('error', onError);
+          audio.removeEventListener('loadeddata', onLoadedData);
+        };
+
+        const onEnded = () => {
+          this.log('✅ Audio playback completed successfully');
+          if (options.onEnd) {
+            try {
+              options.onEnd();
+            } catch (callbackError) {
+              console.warn('TTS onEnd callback error:', callbackError);
+            }
+          }
+          cleanup();
+          resolve(audio);
+        };
+
+        const onError = () => {
+          const errorMsg = audio.error?.message || 'Unknown audio error';
+          this.log(`❌ Audio playback error: ${errorMsg}`);
+          if (options.onError) {
+            try {
+              options.onError(errorMsg);
+            } catch (callbackError) {
+              console.warn('TTS onError callback error:', callbackError);
+            }
+          }
+          cleanup();
+          reject(new Error(`Audio playback failed: ${errorMsg}`));
+        };
+
+        const onLoadedData = async () => {
+          try {
+            this.log('🎵 Starting audio playback...');
+            await audio.play();
+            this.log('✅ Audio playback started successfully');
+            if (options.onStart) {
+              try {
+                options.onStart();
+              } catch (callbackError) {
+                console.warn('TTS onStart callback error:', callbackError);
+              }
+            }
+            // Audio started successfully - onEnded will handle completion
+          } catch (playError: any) {
+            this.log(`⚠️  Autoplay blocked by browser: ${playError.message}`);
+            // For autoplay blocked case, call onError callback
+            if (options.onError) {
+              try {
+                options.onError(`Autoplay blocked: ${playError.message}`);
+              } catch (callbackError) {
+                console.warn('TTS onError callback error:', callbackError);
+              }
+            }
+            cleanup();
+            resolve(audio);
+          }
+        };
+
+        audio.addEventListener('ended', onEnded);
+        audio.addEventListener('error', onError);
+        audio.addEventListener('loadeddata', onLoadedData);
+
+        // Start loading the audio
+        audio.load();
       });
 
-      // Auto-play the audio
-      await audio.play();
-      this.log('Audio playback started');
-      return audio;
-
     } catch (error) {
-      this.log(`Error playing audio: ${error}`);
-      throw new Error(`Failed to play audio: ${error}`);
+      this.log(`❌ Error in speakText: ${error}`);
+      throw new Error(`Failed to speak text: ${error}`);
     }
+  }
+
+  /**
+   * Adds WAV header to raw PCM audio data for better browser compatibility.
+   * Gemini TTS returns raw PCM at 24kHz, 16-bit, mono.
+   * @param rawAudioBlob - Raw PCM audio blob
+   * @returns WAV formatted blob
+   */
+  private async addWavHeader(rawAudioBlob: Blob): Promise<Blob> {
+    const sampleRate = 24000; // Gemini TTS outputs at 24kHz
+    const bitsPerSample = 16;
+    const channels = 1; // mono
+    const bytesPerSample = bitsPerSample / 8;
+    const blockAlign = channels * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    
+    const rawBuffer = await rawAudioBlob.arrayBuffer();
+    const rawArray = new Uint8Array(rawBuffer);
+    const wavHeaderLength = 44;
+    const totalLength = wavHeaderLength + rawArray.length;
+    
+    const wavBuffer = new ArrayBuffer(totalLength);
+    const view = new DataView(wavBuffer);
+    
+    // WAV file header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF'); // ChunkID
+    view.setUint32(4, totalLength - 8, true); // ChunkSize
+    writeString(8, 'WAVE'); // Format
+    writeString(12, 'fmt '); // Subchunk1ID
+    view.setUint32(16, 16, true); // Subchunk1Size
+    view.setUint16(20, 1, true); // AudioFormat (PCM)
+    view.setUint16(22, channels, true); // NumChannels
+    view.setUint32(24, sampleRate, true); // SampleRate
+    view.setUint32(28, byteRate, true); // ByteRate
+    view.setUint16(32, blockAlign, true); // BlockAlign
+    view.setUint16(34, bitsPerSample, true); // BitsPerSample
+    writeString(36, 'data'); // Subchunk2ID
+    view.setUint32(40, rawArray.length, true); // Subchunk2Size
+    
+    // Copy raw audio data
+    const wavArray = new Uint8Array(wavBuffer);
+    wavArray.set(rawArray, wavHeaderLength);
+    
+    return new Blob([wavBuffer], { type: 'audio/wav' });
   }
 
   /**
@@ -253,4 +385,3 @@ export class GeminiTTSService {
     console.log(`[DEBUG GeminiTTSService]\n${logMessage}`);
   }
 }
-

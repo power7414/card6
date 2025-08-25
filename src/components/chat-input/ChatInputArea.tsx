@@ -57,7 +57,8 @@ export const ChatInputArea: React.FC = () => {
   
   // Gemini STT+TTS conversation
   const geminiConversation = useGeminiConversation({
-    apiKey: process.env.REACT_APP_GEMINI_API_KEY,
+    geminiApiKey: process.env.REACT_APP_GEMINI_API_KEY,
+    openaiApiKey: process.env.REACT_APP_OPENAI_API_KEY,
     sttLanguage: 'zh-TW',
     ttsLanguage: 'zh-TW',
     enableLogging: process.env.NODE_ENV === 'development'
