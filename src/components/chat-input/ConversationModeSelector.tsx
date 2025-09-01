@@ -33,10 +33,10 @@ const MODE_OPTIONS: ModeOption[] = [
   },
   {
     value: 'stt-tts',
-    label: 'STT + TTS',
-    description: '語音轉文字 + 文字轉語音',
+    label: 'LLM + TTS',
+    description: '文字輸入 + AI 語音回覆',
     iconPath: '/images/mode-icons/live-api.png',
-    fallbackIcon: 'hearing'
+    fallbackIcon: 'chat'
   }
 ];
 

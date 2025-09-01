@@ -1,6 +1,6 @@
 /**
- * Hook for managing Gemini STT+TTS conversation mode
- * Integrates GeminiChatService, GeminiSTTService, and GeminiTTSService
+ * Hook for managing Gemini LLM+TTS conversation mode
+ * Integrates GeminiChatService and GeminiTTSService for text-to-speech responses
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';

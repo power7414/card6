@@ -2,8 +2,8 @@
 
 ## 📋 專案概述
 
-**最後更新**: 2025-08-25  
-**專案版本**: 0.2.1  
+**最後更新**: 2025-09-01  
+**專案版本**: 0.2.2  
 **技術負責人**: Development Team
 
 這是一個基於 React 18 + TypeScript 的專業多模態 AI 對話平台，整合了完整的 Google Gemini API 生態系統。**支援雙模式對話系統**：Live API 即時語音互動和 LLM+TTS 文字輸入語音回覆，提供企業級的語音對話、多聊天室管理、session resumption、豐富的模型選擇等功能。
@@ -73,7 +73,7 @@ graph TB
 - **Data Models**: 統一的數據模型和類型定義
 
 #### 4. Infrastructure Layer (基礎設施層)
-- **Gemini Services**: 完整的 Gemini API 服務封裝 (Live API, STT, TTS, Chat)
+- **Gemini Services**: 完整的 Gemini API 服務封裝 (Live API, Chat, TTS)
 - **IndexedDB Storage**: 本地數據存儲和查詢
 - **Audio Processing Pipeline**: MediaRecorder + Web Audio API 的專業音頻處理
 
@@ -116,11 +116,13 @@ graph TB
 - `utils/message-factory.ts`: 統一的訊息創建工廠函數
 - `utils/session-debug.ts`: 簡化的 session 除錯工具
 
-#### 🎯 核心 Hooks (9個)
+#### 🎯 核心 Hooks (11個)
 - `use-chat-manager.ts`: 聊天室管理核心
 - `use-transcription.ts`: 整合轉錄功能（包含 Live API 整合）
 - `use-conversation.ts`: 對話發送功能
 - `use-conversation-events.ts`: Live API 事件處理
+- `use-conversation-mode.ts`: 模式切換管理 🆕
+- `use-gemini-conversation.ts`: LLM+TTS 完整流程 🆕
 - `use-live-api.ts`: Live API 連接管理
 - `use-session-resumption.ts`: Session 恢復功能
 - `use-webcam.ts`: 網路攝影機控制
@@ -419,7 +421,7 @@ interface AudioVisualizerProps {
 
 ## 🧠 Hook 系統設計
 
-### 自定義 Hook 架構 (12個核心 Hooks)
+### 自定義 Hook 架構 (11個核心 Hooks)
 
 #### 🆕 use-conversation-mode.ts
 雙模式切換的核心邏輯：
@@ -1522,6 +1524,26 @@ describe('Component/Hook/Function Name', () => {
 ---
 
 ## 📝 變更日誌
+
+### v0.2.2 (2025-09-01) 🧹
+#### 🎯 專案清理和文檔更新
+- 🗑️ **移除 Azure OpenAI 整合**: 完全清理 Azure OpenAI 相關服務、hooks 和組件
+- 🗑️ **清理 Debug 組件**: 移除測試用途的 debug 目錄和相關檔案
+- 🗑️ **移除空目錄**: 清理不再使用的 openai 服務目錄
+- 📚 **文檔更新**: 更新 README.md 和 CLAUDE.md，確保與當前專案狀態一致
+- 🔧 **Hook 數量調整**: 從12個調整為實際的11個核心 hooks
+- ✨ **使用指南優化**: 改善 README 中的設定說明和故障排除
+
+#### 清理檔案列表
+- `src/services/azure-openai/` 整個目錄
+- `src/hooks/use-azure-openai.ts`
+- `src/components/debug/` 整個目錄
+- `src/services/openai/` 空目錄
+
+#### 技術改進
+- 📖 **文檔準確性**: 確保所有技術文檔反映實際專案狀態
+- 🔄 **HTTPS 說明**: 加強 Live API 需要 HTTPS 的相關說明
+- 🛠️ **故障排除**: 完善常見問題的解決方案
 
 ### v0.2.1 (2025-08-25) 🚀
 #### 🎯 重大重構：移除 STT 功能，專注 LLM+TTS

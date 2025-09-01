@@ -80,7 +80,9 @@ export function useLiveAPI(options: LiveClientOptions): UseLiveAPIResults {
   // 根據前端設定動態生成語音配置
   const getSpeechConfig = useCallback(() => {
     const config = {
-      languageCode: "cmn-CN", // Live API 主要使用語言代碼控制
+      // languageCode 應該在 speechConfig 層級，不是在 voiceConfig 內
+      // 如果需要中文，可以設定為 "zh-CN" 或 "cmn-CN"
+      languageCode: "cmn-CN",
       voiceConfig: {
         prebuiltVoiceConfig: {
           voiceName: settings.voice // 使用前端選擇的音色
