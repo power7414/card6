@@ -6,14 +6,14 @@
   align-items: center;
   transition: all 0.5s;
   gap: 3px;
+  padding: 0 8px; // 添加內邊距
 
   & > div {
-    background-color: rgba(255, 255, 255, 0.3);
+    background-color: #9ca3af; // 改為灰色
     border-radius: 1000px;
     width: 4px;
     min-height: 4px;
     transition: height 0.1s;
-    box-shadow: 0 0 4px rgba(255, 255, 255, 0.2);
   }
 
   &.hover > div {
@@ -21,13 +21,13 @@
   }
 
   transition: opacity 0.333s;
-  opacity: 0;
+  opacity: 0.3; // 即使非活躍也有輕微可見度
 
   &.active {
     opacity: 1;
 
     & > div {
-      background-color: rgba(255, 255, 255, 0.5);
+      background-color: #6b7280; // 活躍時使用深一點的灰色
     }
   }
 }

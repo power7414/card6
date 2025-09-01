@@ -273,7 +273,13 @@
   }
 
   .typing-animation {
-    padding: $spacing-xs 0;
+    padding: $spacing-sm;
+    min-height: 50px; // 確保有足夠高度
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    position: relative;
+    z-index: 5; // 確保顯示層級
   }
 }
 
@@ -362,7 +368,7 @@
         height: 14px;
 
         &.recording {
-          color: var(--error-color);
+          color: var(--success-color, #10b981); // 改為綠色表示錄音中
           animation: pulse 1.5s infinite;
         }
 

@@ -4,16 +4,20 @@
 .wave-animation {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px; // 增加間距
   height: 40px;
   padding: 0 8px;
+  position: relative; // 確保定位正確
+  z-index: 10; // 確保在其他元素之上
   
   .wave-bar {
-    width: 3px;
-    background: linear-gradient(to top, #4285f4, #34a853);
+    width: 4px; // 增加寬度
+    background: #ffffff; // 使用純白色，更明顯
     border-radius: 2px;
-    transition: height 0.15s ease;
+    transition: height 0.2s ease;
     min-height: 4px;
+    opacity: 1; // 完全不透明
+    box-shadow: 0 0 4px rgba(255, 255, 255, 0.8); // 添加白色發光
     
     &:nth-child(1) { animation-delay: 0s; }
     &:nth-child(2) { animation-delay: 0.1s; }
@@ -25,6 +29,8 @@
   &.active {
     .wave-bar {
       animation: wave 1.5s ease-in-out infinite;
+      background: #ffffff !important; // 強制白色
+      box-shadow: 0 0 10px rgba(255, 255, 255, 1) !important; // 更強的發光效果
     }
   }
 }

@@ -161,19 +161,19 @@
       
       // Active state for microphone
       &.mic-button.active {
-        background: #ef4444;
-        border-color: #dc2626;
+        background: #10b981; // 改為綠色表示開啟狀態
+        border-color: #059669;
         
         .material-symbols-outlined {
           color: white;
         }
         
         &:hover {
-          background: #dc2626;
+          background: #059669;
         }
         
         &.recording {
-          animation: recording 2s infinite;
+          animation: recording-green 2s infinite; // 使用綠色錄製動畫
         }
       }
       
@@ -405,6 +405,18 @@
   }
   100% { 
     box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); 
+  }
+}
+
+@keyframes recording-green {
+  0% { 
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); 
+  }
+  70% { 
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); 
+  }
+  100% { 
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); 
   }
 }
 
